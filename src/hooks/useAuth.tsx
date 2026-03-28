@@ -38,43 +38,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (password: string): Promise<boolean> => {
-    // En desarrollo local, validamos directamente
-    // En producción, esto llamaría a la API de Cloudflare
-    const isDev = import.meta.env.DEV;
-    
-    if (isDev) {
-      // Desarrollo local - validación directa
-      if (password === ADMIN_PASSWORD) {
-        const token = btoa(`${Date.now()}:${ADMIN_PASSWORD}`);
-        const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-        localStorage.setItem(TOKEN_KEY, token);
-        localStorage.setItem(TOKEN_EXPIRY_KEY, expiresAt);
-        setIsAuthenticated(true);
-        return true;
-      }
-      return false;
-    } else {
-      // Producción - llamar a la API
-      try {
-        const response = await fetch('/api/auth/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ password })
-        });
-
-        if (response.ok) {
-          const data = await response.json() as { token: string; expiresAt: string };
-          localStorage.setItem(TOKEN_KEY, data.token);
-          localStorage.setItem(TOKEN_EXPIRY_KEY, data.expiresAt);
-          setIsAuthenticated(true);
-          return true;
-        }
-        return false;
-      } catch (error) {
-        console.error('Login error:', error);
-        return false;
-      }
+    // La validación funciona igual en desarrollo y producción
+    if (password === ADMIN_PASSWORD) {
+      const token = btoa(`${Date.now()}:${ADMIN_PASSWORD}`);
+      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+      localStorage.setItem(TOKEN_KEY, token);
+      localStorage.setItem(TOKEN_EXPIRY_KEY, expiresAt);
+      setIsAuthenticated(true);
+      return true;
     }
+    return false;
   };
 
   const logout = () => {
