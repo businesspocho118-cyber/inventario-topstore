@@ -1,0 +1,8 @@
+{
+  "name": "inventario-topstore",
+  "build": {
+    "command": "npm run build",
+    "cwd": ".",
+    "watch_dir": "."
+  }
+}
