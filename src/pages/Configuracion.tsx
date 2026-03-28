@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Settings, Key, Database, Globe, RefreshCw, AlertCircle, CheckCircle } from 'lucide-react';
+import { Database, Globe, RefreshCw, AlertCircle, CheckCircle } from 'lucide-react';
 import { useToast } from '../components/Toast';
 import styles from './Configuracion.module.css';
 

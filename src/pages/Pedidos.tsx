@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
-import { ShoppingCart, Search, Plus, ChevronDown, X, Check, Truck, Package, Clock } from 'lucide-react';
+import { ShoppingCart, Search, Plus, X, Check, Truck, Package, Clock } from 'lucide-react';
 import { useApi } from '../hooks/useApi';
 import { useToast } from '../components/Toast';
 import { Modal } from '../components/Modal';
 import { PageLoading } from '../components/Loading';
-import type { Pedido, Producto, CreatePedidoRequest } from '../types';
+import type { Pedido, Producto } from '../types';
 import styles from './Pedidos.module.css';
 
 const ESTADOS = ['pendiente', 'pagado', 'enviado', 'entregado'] as const;
@@ -157,11 +157,6 @@ export function Pedidos() {
       return;
     }
 
-    const total = nuevoPedido.items.reduce(
-      (sum, item) => sum + item.cantidad * item.precio_unitario, 
-      0
-    );
-
     const result = await createPedido({
       cliente_nombre: nuevoPedido.cliente_nombre,
       cliente_telefono: nuevoPedido.cliente_telefono,
@@ -208,11 +203,6 @@ export function Pedidos() {
       hour: '2-digit',
       minute: '2-digit'
     });
-  };
-
-  const getTotalPedido = (pedido: Pedido) => {
-    // Calculate from items (we'd need to fetch items separately in real app)
-    return pedido.total;
   };
 
   if (isLoading && pedidos.length === 0) {

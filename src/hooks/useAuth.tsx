@@ -63,7 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
 
         if (response.ok) {
-          const data = await response.json();
+          const data = await response.json() as { token: string; expiresAt: string };
           localStorage.setItem(TOKEN_KEY, data.token);
           localStorage.setItem(TOKEN_EXPIRY_KEY, data.expiresAt);
           setIsAuthenticated(true);
