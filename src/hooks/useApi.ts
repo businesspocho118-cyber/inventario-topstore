@@ -1,5 +1,4 @@
 import { useState, useCallback } from 'react';
-import data from '../data/productos.json';
 import type { 
   ApiResponse, 
   Producto, 
@@ -10,16 +9,43 @@ import type {
   CreatePedidoRequest 
 } from '../types';
 
-// Base de datos desde JSON
-let productosDb: Producto[] = [...data.productos];
-let pedidosDb: Pedido[] = [...data.pedidos];
-let nextProductoId = productosDb.length + 1;
-let nextPedidoId = pedidosDb.length + 1;
+// Datos por defecto
+const defaultData = {
+  productos: [] as Producto[],
+  pedidos: [] as Pedido[]
+};
 
-// Guardar a JSON (simulado - en producción se guardaría en GitHub)
+// Base de datos - se carga desde JSON
+let productosDb: Producto[] = [];
+let pedidosDb: Pedido[] = [];
+let nextProductoId = 1;
+let nextPedidoId = 1;
+let dataLoaded = false;
+
+// Cargar datos desde JSON
+const loadData = async () => {
+  if (dataLoaded) return;
+  
+  try {
+    const response = await fetch('/data/productos.json');
+    const data = await response.json() as { productos: Producto[]; pedidos: Pedido[] };
+    productosDb = data.productos || [];
+    pedidosDb = data.pedidos || [];
+    nextProductoId = (productosDb.length > 0 ? Math.max(...productosDb.map(p => p.id)) : 0) + 1;
+    nextPedidoId = (pedidosDb.length > 0 ? Math.max(...pedidosDb.map(p => p.id)) : 0) + 1;
+    dataLoaded = true;
+    console.log('Datos cargados:', productosDb.length, 'productos');
+  } catch (error) {
+    console.error('Error loading data:', error);
+    productosDb = [];
+    pedidosDb = [];
+    dataLoaded = true;
+  }
+};
+
+// Guardar a JSON (simulado)
 const saveToJson = async () => {
-  console.log('Datos guardados en memoria (sincronización con JSON)');
-  // En producción, esto enviaría los datos al repositorio de GitHub
+  console.log('Datos guardados en memoria');
 };
 
 export function useApi() {
@@ -28,6 +54,7 @@ export function useApi() {
   // Dashboard
   const getStats = useCallback(async (): Promise<ApiResponse<DashboardStats>> => {
     setIsLoading(true);
+    await loadData();
     await new Promise(r => setTimeout(r, 300));
     
     const productosActivos = productosDb.filter(p => p.activo);
@@ -50,6 +77,7 @@ export function useApi() {
   // Productos
   const getProductos = useCallback(async (): Promise<ApiResponse<Producto[]>> => {
     setIsLoading(true);
+    await loadData();
     await new Promise(r => setTimeout(r, 300));
     const activos = productosDb.filter(p => p.activo);
     setIsLoading(false);
@@ -58,6 +86,7 @@ export function useApi() {
 
   const getProducto = useCallback(async (id: number): Promise<ApiResponse<Producto>> => {
     setIsLoading(true);
+    await loadData();
     await new Promise(r => setTimeout(r, 200));
     const producto = productosDb.find(p => p.id === id);
     setIsLoading(false);
@@ -69,6 +98,7 @@ export function useApi() {
 
   const createProducto = useCallback(async (req: CreateProductoRequest): Promise<ApiResponse<Producto>> => {
     setIsLoading(true);
+    await loadData();
     await new Promise(r => setTimeout(r, 300));
     
     if (productosDb.some(p => p.product_id === req.product_id)) {
@@ -93,6 +123,7 @@ export function useApi() {
 
   const updateProducto = useCallback(async (id: number, req: UpdateProductoRequest): Promise<ApiResponse<Producto>> => {
     setIsLoading(true);
+    await loadData();
     await new Promise(r => setTimeout(r, 300));
     
     const index = productosDb.findIndex(p => p.id === id);
@@ -115,6 +146,7 @@ export function useApi() {
 
   const deleteProducto = useCallback(async (id: number): Promise<ApiResponse<void>> => {
     setIsLoading(true);
+    await loadData();
     await new Promise(r => setTimeout(r, 300));
     
     const index = productosDb.findIndex(p => p.id === id);
@@ -135,6 +167,7 @@ export function useApi() {
   // Pedidos
   const getPedidos = useCallback(async (): Promise<ApiResponse<Pedido[]>> => {
     setIsLoading(true);
+    await loadData();
     await new Promise(r => setTimeout(r, 300));
     setIsLoading(false);
     return { success: true, data: [...pedidosDb] };
@@ -142,6 +175,7 @@ export function useApi() {
 
   const getPedido = useCallback(async (id: number): Promise<ApiResponse<Pedido>> => {
     setIsLoading(true);
+    await loadData();
     await new Promise(r => setTimeout(r, 200));
     const pedido = pedidosDb.find(p => p.id === id);
     setIsLoading(false);
@@ -153,6 +187,7 @@ export function useApi() {
 
   const createPedido = useCallback(async (req: CreatePedidoRequest): Promise<ApiResponse<Pedido>> => {
     setIsLoading(true);
+    await loadData();
     await new Promise(r => setTimeout(r, 300));
     
     if (!req.cliente_nombre || !req.cliente_telefono || req.items.length === 0) {
@@ -191,6 +226,7 @@ export function useApi() {
 
   const updatePedidoEstado = useCallback(async (id: number, estado: string): Promise<ApiResponse<Pedido>> => {
     setIsLoading(true);
+    await loadData();
     await new Promise(r => setTimeout(r, 300));
     
     const index = pedidosDb.findIndex(p => p.id === id);
