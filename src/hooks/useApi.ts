@@ -126,6 +126,23 @@ const syncFromCatalog = async (): Promise<{ success: number; errors: string[] }>
         const existingIndex = productosDb.findIndex(p => p.product_id === productId);
         const validGender = gender === 'mujeres' ? 'mujeres' : 'hombres';
         
+        // Crear stock_por_color basado en los colores del catálogo
+        const colorList = colors.split(', ').map((c: string) => c.trim()).filter((c: string) => c);
+        const newStockPorColor: Record<string, number> = {};
+        
+        // Si existe, preservar el stock actual por color
+        if (existingIndex !== -1 && productosDb[existingIndex].stock_por_color) {
+          colorList.forEach((color: string) => {
+            // Preservar stock existente o inicializar en 0
+            newStockPorColor[color] = productosDb[existingIndex].stock_por_color?.[color] ?? 0;
+          });
+        } else {
+          // Nuevo producto, inicializar todo en 0
+          colorList.forEach((color: string) => {
+            newStockPorColor[color] = 0;
+          });
+        }
+        
         if (existingIndex !== -1) {
           // Actualizar producto existente
           productosDb[existingIndex] = {
@@ -133,6 +150,8 @@ const syncFromCatalog = async (): Promise<{ success: number; errors: string[] }>
             nombre: name,
             precio: price,
             colores: colors,
+            stock_por_color: newStockPorColor,
+            stock: Object.values(newStockPorColor).reduce((a, b) => a + b, 0),
             genero: validGender,
             image_paths: imagePaths,
             updated_at: new Date().toISOString()
@@ -146,6 +165,7 @@ const syncFromCatalog = async (): Promise<{ success: number; errors: string[] }>
             descripcion: '',
             precio: price,
             colores: colors,
+            stock_por_color: newStockPorColor,
             genero: validGender,
             categoria: '',
             image_paths: imagePaths,

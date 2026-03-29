@@ -22,6 +22,8 @@ const colorMap: Record<string, string> = {
   'azul/negro': '#2563eb',
   'azul/blanco': '#2563eb',
   'azul royal': '#1d4ed8',
+  'azul oscuro': '#1e3a8a',
+  'azul claro': '#60a5fa',
   'navy': '#1e3a5f',
   'navy/negro': '#1e3a5f',
   'azul cielo': '#60a5fa',
@@ -41,12 +43,14 @@ const colorMap: Record<string, string> = {
   
   // Grises
   'gris': '#6b7280',
+  'gris claro': '#9ca3af',
   'gris/negro': '#6b7280',
   'gris oscuro': '#374151',
   'gray': '#6b7280',
   
   // Verdes
   'verde': '#16a34a',
+  'verde claro': '#4ade80',
   'verde/negro': '#16a34a',
   'verde oscuro': '#14532d',
   'verde militar': '#4d7c0f',
@@ -60,19 +64,31 @@ const colorMap: Record<string, string> = {
   
   // Morados
   'morado': '#9333ea',
+  'morado claro': '#c084fc',
+  'morado oscuro': '#6b21a8',
   'violeta': '#8b5cf6',
   'purple': '#9333ea',
   
-  // Rozas/others
+  // Rosados
   'rosa': '#ec4899',
+  'rosado': '#ec4899',
   'rosa claro': '#f9a8d4',
+  'rosado/negro': '#ec4899',
   'pink': '#ec4899',
-  'naranja': '#f97316',
-  'orange': '#f97316',
-  'beige': '#d4c4a8',
+  
+  // Vino
+  'vino tinto': '#722f37',
+  'vino': '#722f37',
+  
+  // Café/Marrón
   'café': '#78350f',
   'marron': '#78350f',
   'brown': '#78350f',
+  
+  // Otros
+  'naranja': '#f97316',
+  'orange': '#f97316',
+  'beige': '#d4c4a8',
   'crema': '#fef3c7',
   'turquesa': '#14b8a6',
   'cyan': '#06b6d4',
