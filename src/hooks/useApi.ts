@@ -129,17 +129,18 @@ const syncFromCatalog = async (): Promise<{ success: number; errors: string[] }>
         const validGender = gender === 'mujeres' ? 'mujeres' : 'hombres';
         
         // Crear stock_por_color basado en los colores del catálogo
-        // CADA COLOR = 1 UNIDAD
+        // CADA COLOR = 1 UNIDAD (SIEMPRE, sin importar si ya existía)
         const colorList = colors.split(', ').map((c: string) => c.trim()).filter((c: string) => c);
         const newStockPorColor: Record<string, number> = {};
         
+        // Asignar 1 unidad a cada color (SIEMPRE)
+        colorList.forEach((color: string) => {
+          newStockPorColor[color] = 1;
+        });
+        
+        const totalStock = colorList.length; // Stock total = cantidad de colores
+        
         if (existingIndex !== -1) {
-          // Producto existente: preservar stock actual o asignar 1 si es color nuevo
-          colorList.forEach((color: string) => {
-            const existingStock = productosDb[existingIndex].stock_por_color?.[color];
-            newStockPorColor[color] = existingStock !== undefined ? existingStock : 1;
-          });
-          
           // Actualizar producto existente
           productosDb[existingIndex] = {
             ...productosDb[existingIndex],
@@ -147,18 +148,13 @@ const syncFromCatalog = async (): Promise<{ success: number; errors: string[] }>
             precio: price,
             colores: colors,
             stock_por_color: newStockPorColor,
-            stock: Object.values(newStockPorColor).reduce((a, b) => a + b, 0),
+            stock: totalStock,
             genero: validGender,
             image_paths: imagePaths,
             updated_at: new Date().toISOString()
           };
         } else {
-          // Producto nuevo: cada color tiene 1 unidad
-          colorList.forEach((color: string) => {
-            newStockPorColor[color] = 1;
-          });
-          
-          // Crear nuevo producto con stock = cantidad de colores
+          // Crear nuevo producto
           const newProduct: Producto = {
             id: nextProductoId++,
             product_id: productId,
@@ -170,7 +166,7 @@ const syncFromCatalog = async (): Promise<{ success: number; errors: string[] }>
             genero: validGender,
             categoria: '',
             image_paths: imagePaths,
-            stock: colorList.length, // Stock total = cantidad de colores
+            stock: totalStock,
             activo: true,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
