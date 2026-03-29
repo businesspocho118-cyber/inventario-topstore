@@ -406,6 +406,32 @@ export function useApi() {
     return { success: true, data: pedidosDb[index] };
   }, []);
 
+  // Eliminar pedido y re-numerar
+  const deletePedido = useCallback(async (id: number): Promise<ApiResponse<void>> => {
+    setIsLoading(true);
+    await loadData();
+    await new Promise(r => setTimeout(r, 300));
+    
+    const index = pedidosDb.findIndex(p => p.id === id);
+    if (index === -1) {
+      setIsLoading(false);
+      return { success: false, error: 'Pedido no encontrado' };
+    }
+    
+    // Eliminar el pedido
+    pedidosDb.splice(index, 1);
+    
+    // Re-numerar todos los pedidos desde 1
+    pedidosDb.forEach((pedido, idx) => {
+      pedido.id = idx + 1;
+    });
+    
+    await saveToStorage();
+    
+    setIsLoading(false);
+    return { success: true };
+  }, []);
+
   // Sincronizar con catálogo
   const syncWithCatalog = useCallback(async (): Promise<ApiResponse<{ success: number; removed: number; errors: string[] }>> => {
     setIsLoading(true);
@@ -441,6 +467,7 @@ export function useApi() {
     getPedido,
     createPedido,
     updatePedidoEstado,
+    deletePedido,
     syncWithCatalog,
     getLastSync,
     resetData

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ShoppingCart, Search, Plus, X, Check, Truck, Package, Clock } from 'lucide-react';
+import { ShoppingCart, Search, Plus, X, Check, Truck, Package, Clock, Trash2 } from 'lucide-react';
 import { useApi } from '../hooks/useApi';
 import { useToast } from '../components/Toast';
 import { Modal } from '../components/Modal';
@@ -31,7 +31,7 @@ interface PedidoItem {
 }
 
 export function Pedidos() {
-  const { getPedidos, getProductos, createPedido, updatePedidoEstado, isLoading } = useApi();
+  const { getPedidos, getProductos, createPedido, updatePedidoEstado, deletePedido, isLoading } = useApi();
   const { showToast } = useToast();
   
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
@@ -187,6 +187,18 @@ export function Pedidos() {
     }
   };
 
+  const handleEliminarPedido = async (pedidoId: number) => {
+    if (!confirm(`¿Eliminar pedido #${pedidoId}? Se re-numerarán los pedidos.`)) return;
+    
+    const result = await deletePedido(pedidoId);
+    if (result.success) {
+      showToast('Pedido eliminado y pedidos re-numerados', 'success');
+      loadData();
+    } else {
+      showToast(result.error || 'Error al eliminar', 'error');
+    }
+  };
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('es-CO', {
       style: 'currency',
@@ -288,6 +300,13 @@ export function Pedidos() {
                       <Icon size={12} />
                       {pedido.estado}
                     </span>
+                    <button 
+                      className={styles.deleteBtn}
+                      onClick={() => handleEliminarPedido(pedido.id)}
+                      title="Eliminar pedido"
+                    >
+                      <Trash2 size={16} />
+                    </button>
                   </div>
                 </div>
 

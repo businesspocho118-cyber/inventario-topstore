@@ -6,6 +6,7 @@ import { Login } from './pages/Login';
 import { Dashboard } from './pages/Dashboard';
 import { Productos } from './pages/Productos';
 import { Pedidos } from './pages/Pedidos';
+import { Fidelidad } from './pages/Fidelidad';
 import { Configuracion } from './pages/Configuracion';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -52,6 +53,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Pedidos />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/fidelidad"
+        element={
+          <ProtectedRoute>
+            <Fidelidad />
           </ProtectedRoute>
         }
       />

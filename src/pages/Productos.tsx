@@ -208,12 +208,8 @@ export function Productos() {
       <header className={styles.header}>
         <div>
           <h1 className={styles.title}>Productos</h1>
-          <p className={styles.subtitle}>{productos.length} productos en total</p>
+          <p className={styles.subtitle}>{productos.length} productos en total (sincronizados desde catálogo)</p>
         </div>
-        <button className="btn btn-primary" onClick={() => handleOpenModal()}>
-          <Plus size={18} />
-          Nuevo Producto
-        </button>
       </header>
 
       {/* Filters */}
