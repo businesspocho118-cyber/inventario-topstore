@@ -1,11 +1,18 @@
 import { useState, useEffect } from 'react';
-import { ShoppingCart, Search, Plus, X, Check, Truck, Package, Clock, Trash2 } from 'lucide-react';
+import { ShoppingCart, Search, Plus, X, Check, Truck, Package, Clock, Trash2, Users } from 'lucide-react';
 import { useApi } from '../hooks/useApi';
 import { useToast } from '../components/Toast';
 import { Modal } from '../components/Modal';
 import { PageLoading } from '../components/Loading';
 import type { Pedido, Producto } from '../types';
 import styles from './Pedidos.module.css';
+
+interface ClienteFidelidad {
+  id: number;
+  nombre: string;
+  telefono: string;
+  compras: number;
+}
 
 const ESTADOS = ['pendiente', 'pagado', 'enviado', 'entregado'] as const;
 
@@ -27,7 +34,9 @@ interface PedidoItem {
   producto_id: number;
   cantidad: number;
   precio_unitario: number;
+  color: string;
   producto_nombre?: string;
+  colores_disponibles?: string[];
 }
 
 export function Pedidos() {
@@ -53,6 +62,10 @@ export function Pedidos() {
     items: []
   });
   const [productoSeleccionado, setProductoSeleccionado] = useState<number | ''>('');
+  const [colorSeleccionado, setColorSeleccionado] = useState<string>('');
+  const [tipoCliente, setTipoCliente] = useState<'nuevo' | 'existente'>('nuevo');
+  const [clientesFidelidad, setClientesFidelidad] = useState<ClienteFidelidad[]>([]);
+  const [clienteSeleccionado, setClienteSeleccionado] = useState<number | ''>('');
 
   useEffect(() => {
     loadData();
@@ -93,6 +106,12 @@ export function Pedidos() {
   };
 
   const handleOpenModal = () => {
+    // Cargar clientes de fidelidad
+    const stored = localStorage.getItem('topstore_clientes_fidelidad');
+    if (stored) {
+      setClientesFidelidad(JSON.parse(stored));
+    }
+    
     setNuevoPedido({
       cliente_nombre: '',
       cliente_telefono: '',
@@ -105,20 +124,51 @@ export function Pedidos() {
 
   const handleCloseModal = () => {
     setIsModalOpen(false);
+    setProductoSeleccionado('');
+    setColorSeleccionado('');
+    setTipoCliente('nuevo');
+    setClienteSeleccionado('');
+  };
+
+  const handleClienteExistenteChange = (clienteId: number) => {
+    setClienteSeleccionado(clienteId);
+    const cliente = clientesFidelidad.find(c => c.id === clienteId);
+    if (cliente) {
+      setNuevoPedido(prev => ({
+        ...prev,
+        cliente_nombre: cliente.nombre,
+        cliente_telefono: cliente.telefono
+      }));
+    }
   };
 
   const addItem = () => {
-    if (productoSeleccionado === '') return;
+    if (productoSeleccionado === '' || colorSeleccionado === '') return;
     
     const producto = productos.find(p => p.id === Number(productoSeleccionado));
     if (!producto) return;
     
-    const existingIndex = nuevoPedido.items.findIndex(item => item.producto_id === producto.id);
+    // Verificar stock disponible del color
+    const stockColor = producto.stock_por_color?.[colorSeleccionado] || 0;
+    if (stockColor === 0) {
+      showToast(`No hay stock disponible en color ${colorSeleccionado}`, 'error');
+      return;
+    }
+    
+    const existingIndex = nuevoPedido.items.findIndex(
+      item => item.producto_id === producto.id && item.color === colorSeleccionado
+    );
     
     if (existingIndex >= 0) {
       const items = [...nuevoPedido.items];
-      items[existingIndex].cantidad += 1;
-      setNuevoPedido(prev => ({ ...prev, items }));
+      // Verificar que no exceda el stock
+      if (items[existingIndex].cantidad < stockColor) {
+        items[existingIndex].cantidad += 1;
+        setNuevoPedido(prev => ({ ...prev, items }));
+      } else {
+        showToast(`Stock máximo alcanzado para ${colorSeleccionado}`, 'warning');
+        return;
+      }
     } else {
       setNuevoPedido(prev => ({
         ...prev,
@@ -128,17 +178,32 @@ export function Pedidos() {
             producto_id: producto.id,
             cantidad: 1,
             precio_unitario: parseInt(producto.precio.replace(/[$.]/g, '')) || 0,
-            producto_nombre: producto.nombre
+            color: colorSeleccionado,
+            producto_nombre: producto.nombre,
+            colores_disponibles: producto.colores.split(', ')
           }
         ]
       }));
     }
     
     setProductoSeleccionado('');
+    setColorSeleccionado('');
   };
 
   const updateItemCantidad = (index: number, cantidad: number) => {
     if (cantidad < 1) return;
+    
+    const item = nuevoPedido.items[index];
+    const producto = productos.find(p => p.id === item.producto_id);
+    if (!producto) return;
+    
+    const stockDisponible = producto.stock_por_color?.[item.color] || 0;
+    
+    if (cantidad > stockDisponible) {
+      showToast(`Stock máximo disponible: ${stockDisponible}`, 'warning');
+      return;
+    }
+    
     const items = [...nuevoPedido.items];
     items[index].cantidad = cantidad;
     setNuevoPedido(prev => ({ ...prev, items }));
@@ -152,8 +217,19 @@ export function Pedidos() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Validar campos requeridos
+    if (!nuevoPedido.cliente_nombre.trim()) {
+      showToast('⚠️ Falta el nombre del cliente', 'warning');
+      return;
+    }
+    
+    if (!nuevoPedido.cliente_telefono.trim()) {
+      showToast('⚠️ Falta el teléfono del cliente', 'warning');
+      return;
+    }
+    
     if (nuevoPedido.items.length === 0) {
-      showToast('Agrega al menos un producto', 'warning');
+      showToast('⚠️ Agrega al menos un producto', 'warning');
       return;
     }
 
@@ -164,7 +240,8 @@ export function Pedidos() {
       items: nuevoPedido.items.map(item => ({
         producto_id: item.producto_id,
         cantidad: item.cantidad,
-        precio_unitario: item.precio_unitario
+        precio_unitario: item.precio_unitario,
+        color: item.color
       }))
     });
 
@@ -348,31 +425,76 @@ export function Pedidos() {
         }
       >
         <form className={styles.form}>
-          <div className={styles.formGrid}>
-            <div className={styles.formGroup}>
-              <label>Nombre del Cliente</label>
-              <input
-                type="text"
-                value={nuevoPedido.cliente_nombre}
-                onChange={(e) => setNuevoPedido(prev => ({ ...prev, cliente_nombre: e.target.value }))}
-                className="input"
-                placeholder="Juan Pérez"
-                required
-              />
-            </div>
-
-            <div className={styles.formGroup}>
-              <label>Teléfono</label>
-              <input
-                type="tel"
-                value={nuevoPedido.cliente_telefono}
-                onChange={(e) => setNuevoPedido(prev => ({ ...prev, cliente_telefono: e.target.value }))}
-                className="input"
-                placeholder="3201234567"
-                required
-              />
+          {/* Selector Cliente Nuevo / Existente */}
+          <div className={styles.formGroup}>
+            <label>Tipo de Cliente</label>
+            <div className={styles.tipoClienteRow}>
+              <button
+                type="button"
+                className={`${styles.tipoBtn} ${tipoCliente === 'nuevo' ? styles.tipoBtnActive : ''}`}
+                onClick={() => {
+                  setTipoCliente('nuevo');
+                  setClienteSeleccionado('');
+                  setNuevoPedido(prev => ({ ...prev, cliente_nombre: '', cliente_telefono: '' }));
+                }}
+              >
+                <Plus size={16} /> Cliente Nuevo
+              </button>
+              <button
+                type="button"
+                className={`${styles.tipoBtn} ${tipoCliente === 'existente' ? styles.tipoBtnActive : ''}`}
+                onClick={() => setTipoCliente('existente')}
+                disabled={clientesFidelidad.length === 0}
+              >
+                <Users size={16} /> Cliente Existente
+              </button>
             </div>
           </div>
+
+          {tipoCliente === 'existente' && clientesFidelidad.length > 0 && (
+            <div className={styles.formGroup}>
+              <label>Seleccionar Cliente</label>
+              <select
+                value={clienteSeleccionado}
+                onChange={(e) => handleClienteExistenteChange(Number(e.target.value))}
+                className="input"
+              >
+                <option value="">Seleccionar cliente...</option>
+                {clientesFidelidad.map(c => (
+                  <option key={c.id} value={c.id}>
+                    {c.nombre} - {c.telefono} ({c.compras} compras)
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {tipoCliente === 'nuevo' && (
+            <div className={styles.formGrid}>
+              <div className={styles.formGroup}>
+                <label>Nombre del Cliente *</label>
+                <input
+                  type="text"
+                  value={nuevoPedido.cliente_nombre}
+                  onChange={(e) => setNuevoPedido(prev => ({ ...prev, cliente_nombre: e.target.value }))}
+                  className="input"
+                  placeholder="Juan Pérez"
+                />
+              </div>
+
+              <div className={styles.formGroup}>
+                <label>Teléfono *</label>
+                <input
+                  type="tel"
+                  value={nuevoPedido.cliente_telefono}
+                  onChange={(e) => setNuevoPedido(prev => ({ ...prev, cliente_telefono: e.target.value.replace(/\D/g, '') }))}
+                  className="input"
+                  placeholder="3201234567"
+                  maxLength={10}
+                />
+              </div>
+            </div>
+          )}
 
           <div className={styles.formGroup}>
             <label>Notas</label>
@@ -390,7 +512,10 @@ export function Pedidos() {
             <div className={styles.addItemRow}>
               <select
                 value={productoSeleccionado}
-                onChange={(e) => setProductoSeleccionado(e.target.value as number | '')}
+                onChange={(e) => {
+                  setProductoSeleccionado(e.target.value as number | '');
+                  setColorSeleccionado('');
+                }}
                 className="input"
               >
                 <option value="">Seleccionar producto...</option>
@@ -400,7 +525,34 @@ export function Pedidos() {
                   </option>
                 ))}
               </select>
-              <button type="button" className="btn btn-secondary" onClick={addItem}>
+              {productoSeleccionado && (
+                <select
+                  value={colorSeleccionado}
+                  onChange={(e) => setColorSeleccionado(e.target.value)}
+                  className="input"
+                >
+                  <option value="">Seleccionar color...</option>
+                  {(() => {
+                    const producto = productos.find(p => p.id === Number(productoSeleccionado));
+                    if (!producto) return null;
+                    const colores = producto.colores.split(', ');
+                    return colores.map(color => {
+                      const stock = producto.stock_por_color?.[color] || 0;
+                      return (
+                        <option key={color} value={color} disabled={stock === 0}>
+                          {color} {stock > 0 ? `(${stock} disp.)` : '(sin stock)'}
+                        </option>
+                      );
+                    });
+                  })()}
+                </select>
+              )}
+              <button 
+                type="button" 
+                className="btn btn-secondary" 
+                onClick={addItem}
+                disabled={!productoSeleccionado || !colorSeleccionado}
+              >
                 <Plus size={18} />
               </button>
             </div>
@@ -411,7 +563,10 @@ export function Pedidos() {
               <h4>Productos</h4>
               {nuevoPedido.items.map((item, index) => (
                 <div key={index} className={styles.item}>
-                  <span className={styles.itemNombre}>{item.producto_nombre}</span>
+                  <div className={styles.itemInfo}>
+                    <span className={styles.itemNombre}>{item.producto_nombre}</span>
+                    <span className={styles.itemColor}>Color: {item.color}</span>
+                  </div>
                   <div className={styles.itemCantidad}>
                     <button 
                       type="button"

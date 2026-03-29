@@ -12,15 +12,20 @@ interface Cliente {
 }
 
 const STORAGE_KEY = 'topstore_clientes_fidelidad';
-const COMPRAS_PARA_DESCUENTO = 6;
+const COMPRAS_PARA_DESCUENTO = 6; // 6 compras que cuentan (la primera no cuenta)
+const COMPRAS_TOTALES_PARA_DESCUENTO = 7; // 1 primera + 6 que cuentan = descuento
 const PORCENTAJE_DESCUENTO = 20;
+
+// Función para calcular compras que cuentan (la primera no cuenta)
+const getComprasQueCuentan = (compras: number) => Math.max(0, compras - 1);
+
+// Función para verificar si tiene descuento disponible
+const tieneDescuento = (compras: number) => getComprasQueCuentan(compras) >= COMPRAS_PARA_DESCUENTO;
 
 export function Fidelidad() {
   const { showToast } = useToast();
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [nuevoCliente, setNuevoCliente] = useState({ nombre: '', telefono: '' });
 
   useEffect(() => {
     loadClientes();
@@ -38,32 +43,13 @@ export function Fidelidad() {
     setClientes(newClientes);
   };
 
-  const handleAgregarCliente = () => {
-    if (!nuevoCliente.nombre.trim() || !nuevoCliente.telefono.trim()) {
-      showToast('Nombre y teléfono son requeridos', 'warning');
-      return;
-    }
-
-    const cliente: Cliente = {
-      id: Date.now(),
-      nombre: nuevoCliente.nombre,
-      telefono: nuevoCliente.telefono,
-      compras: 0,
-      created_at: new Date().toISOString()
-    };
-
-    saveClientes([...clientes, cliente]);
-    setNuevoCliente({ nombre: '', telefono: '' });
-    setIsModalOpen(false);
-    showToast('Cliente agregado', 'success');
-  };
-
   const handleAgregarCompra = (clienteId: number) => {
     const updated = clientes.map(c => {
       if (c.id === clienteId) {
         const newCompras = c.compras + 1;
-        if (newCompras === COMPRAS_PARA_DESCUENTO) {
-          showToast(`🎉 ${c.nombre} completó ${COMPRAS_PARA_DESCUENTO} compras! 20% descuento disponible`, 'success');
+        const comprasQueCuentan = getComprasQueCuentan(newCompras);
+        if (comprasQueCuentan === COMPRAS_PARA_DESCUENTO) {
+          showToast(`🎉 ${c.nombre} completó ${COMPRAS_PARA_DESCUENTO} compras (desde la 2da)! 20% descuento disponible`, 'success');
         }
         return { ...c, compras: newCompras };
       }
@@ -74,7 +60,7 @@ export function Fidelidad() {
 
   const handleUsarDescuento = (clienteId: number) => {
     const cliente = clientes.find(c => c.id === clienteId);
-    if (!cliente || cliente.compras < COMPRAS_PARA_DESCUENTO) return;
+    if (!cliente || !tieneDescuento(cliente.compras)) return;
     
     if (!confirm(`¿Aplicar 20% de descuento a ${cliente.nombre}?\nSe resetearán sus compras a 0.`)) return;
     
@@ -95,7 +81,8 @@ export function Fidelidad() {
   };
 
   const getProgreso = (compras: number) => {
-    return Math.min((compras / COMPRAS_PARA_DESCUENTO) * 100, 100);
+    const comprasQueCuentan = getComprasQueCuentan(compras);
+    return Math.min((comprasQueCuentan / COMPRAS_PARA_DESCUENTO) * 100, 100);
   };
 
   const filteredClientes = clientes.filter(c =>
@@ -105,7 +92,7 @@ export function Fidelidad() {
 
   const stats = {
     total: clientes.length,
-    conDescuento: clientes.filter(c => c.compras >= COMPRAS_PARA_DESCUENTO).length,
+    conDescuento: clientes.filter(c => tieneDescuento(c.compras)).length,
     totalCompras: clientes.reduce((sum, c) => sum + c.compras, 0)
   };
 
@@ -114,12 +101,8 @@ export function Fidelidad() {
       <header className={styles.header}>
         <div>
           <h1 className={styles.title}>Programa de Fidelidad</h1>
-          <p className={styles.subtitle}>{COMPRAS_PARA_DESCUENTO} compras = {PORCENTAJE_DESCUENTO}% descuento</p>
+          <p className={styles.subtitle}>Desde 2ª compra = {PORCENTAJE_DESCUENTO}% descuento ({COMPRAS_PARA_DESCUENTO} compras)</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setIsModalOpen(true)}>
-          <Plus size={18} />
-          Nuevo Cliente
-        </button>
       </header>
 
       {/* Stats */}
@@ -171,7 +154,7 @@ export function Fidelidad() {
       ) : (
         <div className={styles.grid}>
           {filteredClientes.map((cliente) => (
-            <div key={cliente.id} className={`${styles.card} ${cliente.compras >= COMPRAS_PARA_DESCUENTO ? styles.cardComplete : ''}`}>
+            <div key={cliente.id} className={`${styles.card} ${tieneDescuento(cliente.compras) ? styles.cardComplete : ''}`}>
               <div className={styles.cardHeader}>
                 <div className={styles.clienteInfo}>
                   <h3 className={styles.clienteName}>{cliente.nombre}</h3>
@@ -190,8 +173,8 @@ export function Fidelidad() {
 
               <div className={styles.progressSection}>
                 <div className={styles.progressHeader}>
-                  <span>{cliente.compras} / {COMPRAS_PARA_DESCUENTO} compras</span>
-                  {cliente.compras >= COMPRAS_PARA_DESCUENTO && (
+                  <span>{getComprasQueCuentan(cliente.compras)} / {COMPRAS_PARA_DESCUENTO} compras (desde 2ª)</span>
+                  {tieneDescuento(cliente.compras) && (
                     <span className={styles.descuentoBadge}>
                       <Gift size={12} /> 20% DESCUENTO
                     </span>
@@ -204,12 +187,15 @@ export function Fidelidad() {
                   />
                 </div>
                 <div className={styles.comprasDots}>
-                  {Array.from({ length: COMPRAS_PARA_DESCUENTO }).map((_, i) => (
-                    <div 
-                      key={i} 
-                      className={`${styles.dot} ${i < cliente.compras ? styles.dotFilled : ''}`}
-                    />
-                  ))}
+                  {Array.from({ length: COMPRAS_PARA_DESCUENTO }).map((_, i) => {
+                    const comprasQueCuentan = getComprasQueCuentan(cliente.compras);
+                    return (
+                      <div 
+                        key={i} 
+                        className={`${styles.dot} ${i < comprasQueCuentan ? styles.dotFilled : ''}`}
+                      />
+                    );
+                  })}
                 </div>
               </div>
 
@@ -220,7 +206,7 @@ export function Fidelidad() {
                 >
                   <Plus size={14} /> Compra
                 </button>
-                {cliente.compras >= COMPRAS_PARA_DESCUENTO && (
+                {tieneDescuento(cliente.compras) && (
                   <button 
                     className="btn btn-primary"
                     onClick={() => handleUsarDescuento(cliente.id)}
@@ -234,42 +220,10 @@ export function Fidelidad() {
         </div>
       )}
 
-      {/* Modal */}
-      {isModalOpen && (
-        <div className={styles.modalOverlay} onClick={() => setIsModalOpen(false)}>
-          <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-            <h2>Agregar Cliente</h2>
-            <div className={styles.formGroup}>
-              <label>Nombre</label>
-              <input
-                type="text"
-                value={nuevoCliente.nombre}
-                onChange={(e) => setNuevoCliente(prev => ({ ...prev, nombre: e.target.value }))}
-                placeholder="Nombre del cliente"
-                className="input"
-              />
-            </div>
-            <div className={styles.formGroup}>
-              <label>Teléfono</label>
-              <input
-                type="text"
-                value={nuevoCliente.telefono}
-                onChange={(e) => setNuevoCliente(prev => ({ ...prev, telefono: e.target.value }))}
-                placeholder="300 123 4567"
-                className="input"
-              />
-            </div>
-            <div className={styles.modalActions}>
-              <button className="btn btn-secondary" onClick={() => setIsModalOpen(false)}>
-                Cancelar
-              </button>
-              <button className="btn btn-primary" onClick={handleAgregarCliente}>
-                Agregar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Los clientes se agregan desde Ventas */}
+      <div className={styles.infoBox}>
+        <p>Los clientes se agregan automáticamente cuando creás una venta con cliente nuevo.</p>
+      </div>
     </div>
   );
 }
