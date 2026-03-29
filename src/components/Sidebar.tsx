@@ -8,7 +8,8 @@ import {
   LogOut,
   Menu,
   X,
-  ChevronLeft
+  ChevronLeft,
+  Star
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import styles from './Sidebar.module.css';
@@ -21,6 +22,7 @@ const navItems = [
   { path: '/', icon: LayoutDashboard, label: 'Dashboard' },
   { path: '/productos', icon: Package, label: 'Productos' },
   { path: '/pedidos', icon: ShoppingCart, label: 'Pedidos' },
+  { path: '/fidelidad', icon: Star, label: 'Fidelidad' },
   { path: '/configuracion', icon: Settings, label: 'Configuración' },
 ];
 
