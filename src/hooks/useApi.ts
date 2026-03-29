@@ -379,6 +379,19 @@ export function useApi() {
     
     pedidosDb.push(nuevo);
     
+    // Actualizar compras de fidelidad del cliente
+    const FIDELIDAD_KEY = 'topstore_clientes_fidelidad';
+    const clientesFidelidad = localStorage.getItem(FIDELIDAD_KEY);
+    if (clientesFidelidad) {
+      const clientes = JSON.parse(clientesFidelidad);
+      const clienteIndex = clientes.findIndex((c: any) => c.telefono === req.cliente_telefono);
+      if (clienteIndex !== -1) {
+        // El cliente existe, aumentar compras
+        clientes[clienteIndex].compras += 1;
+        localStorage.setItem(FIDELIDAD_KEY, JSON.stringify(clientes));
+      }
+    }
+    
     // Reducir stock de productos (general y por color)
     req.items.forEach(item => {
       const producto = productosDb.find(p => p.id === item.producto_id);

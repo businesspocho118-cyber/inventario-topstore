@@ -412,9 +412,10 @@ export function Pedidos() {
               <input
                 type="tel"
                 value={nuevoPedido.cliente_telefono}
-                onChange={(e) => setNuevoPedido(prev => ({ ...prev, cliente_telefono: e.target.value }))}
+                onChange={(e) => setNuevoPedido(prev => ({ ...prev, cliente_telefono: e.target.value.replace(/\D/g, '') }))}
                 className="input"
                 placeholder="3201234567"
+                maxLength={10}
               />
             </div>
           </div>
