@@ -1,11 +1,18 @@
 import { useState, useEffect } from 'react';
-import { ShoppingCart, Search, Plus, X, Check, Truck, Package, Clock, Trash2 } from 'lucide-react';
+import { ShoppingCart, Search, Plus, X, Check, Truck, Package, Clock, Trash2, Users } from 'lucide-react';
 import { useApi } from '../hooks/useApi';
 import { useToast } from '../components/Toast';
 import { Modal } from '../components/Modal';
 import { PageLoading } from '../components/Loading';
 import type { Pedido, Producto } from '../types';
 import styles from './Pedidos.module.css';
+
+interface ClienteFidelidad {
+  id: number;
+  nombre: string;
+  telefono: string;
+  compras: number;
+}
 
 const ESTADOS = ['pendiente', 'pagado', 'enviado', 'entregado'] as const;
 
@@ -56,6 +63,9 @@ export function Pedidos() {
   });
   const [productoSeleccionado, setProductoSeleccionado] = useState<number | ''>('');
   const [colorSeleccionado, setColorSeleccionado] = useState<string>('');
+  const [tipoCliente, setTipoCliente] = useState<'nuevo' | 'existente'>('nuevo');
+  const [clientesFidelidad, setClientesFidelidad] = useState<ClienteFidelidad[]>([]);
+  const [clienteSeleccionado, setClienteSeleccionado] = useState<number | ''>('');
 
   useEffect(() => {
     loadData();
@@ -96,6 +106,12 @@ export function Pedidos() {
   };
 
   const handleOpenModal = () => {
+    // Cargar clientes de fidelidad
+    const stored = localStorage.getItem('topstore_clientes_fidelidad');
+    if (stored) {
+      setClientesFidelidad(JSON.parse(stored));
+    }
+    
     setNuevoPedido({
       cliente_nombre: '',
       cliente_telefono: '',
@@ -110,6 +126,20 @@ export function Pedidos() {
     setIsModalOpen(false);
     setProductoSeleccionado('');
     setColorSeleccionado('');
+    setTipoCliente('nuevo');
+    setClienteSeleccionado('');
+  };
+
+  const handleClienteExistenteChange = (clienteId: number) => {
+    setClienteSeleccionado(clienteId);
+    const cliente = clientesFidelidad.find(c => c.id === clienteId);
+    if (cliente) {
+      setNuevoPedido(prev => ({
+        ...prev,
+        cliente_nombre: cliente.nombre,
+        cliente_telefono: cliente.telefono
+      }));
+    }
   };
 
   const addItem = () => {
@@ -395,30 +425,76 @@ export function Pedidos() {
         }
       >
         <form className={styles.form}>
-          <div className={styles.formGrid}>
-            <div className={styles.formGroup}>
-              <label>Nombre del Cliente *</label>
-              <input
-                type="text"
-                value={nuevoPedido.cliente_nombre}
-                onChange={(e) => setNuevoPedido(prev => ({ ...prev, cliente_nombre: e.target.value }))}
-                className="input"
-                placeholder="Juan Pérez"
-              />
-            </div>
-
-            <div className={styles.formGroup}>
-              <label>Teléfono *</label>
-              <input
-                type="tel"
-                value={nuevoPedido.cliente_telefono}
-                onChange={(e) => setNuevoPedido(prev => ({ ...prev, cliente_telefono: e.target.value.replace(/\D/g, '') }))}
-                className="input"
-                placeholder="3201234567"
-                maxLength={10}
-              />
+          {/* Selector Cliente Nuevo / Existente */}
+          <div className={styles.formGroup}>
+            <label>Tipo de Cliente</label>
+            <div className={styles.tipoClienteRow}>
+              <button
+                type="button"
+                className={`${styles.tipoBtn} ${tipoCliente === 'nuevo' ? styles.tipoBtnActive : ''}`}
+                onClick={() => {
+                  setTipoCliente('nuevo');
+                  setClienteSeleccionado('');
+                  setNuevoPedido(prev => ({ ...prev, cliente_nombre: '', cliente_telefono: '' }));
+                }}
+              >
+                <Plus size={16} /> Cliente Nuevo
+              </button>
+              <button
+                type="button"
+                className={`${styles.tipoBtn} ${tipoCliente === 'existente' ? styles.tipoBtnActive : ''}`}
+                onClick={() => setTipoCliente('existente')}
+                disabled={clientesFidelidad.length === 0}
+              >
+                <Users size={16} /> Cliente Existente
+              </button>
             </div>
           </div>
+
+          {tipoCliente === 'existente' && clientesFidelidad.length > 0 && (
+            <div className={styles.formGroup}>
+              <label>Seleccionar Cliente</label>
+              <select
+                value={clienteSeleccionado}
+                onChange={(e) => handleClienteExistenteChange(Number(e.target.value))}
+                className="input"
+              >
+                <option value="">Seleccionar cliente...</option>
+                {clientesFidelidad.map(c => (
+                  <option key={c.id} value={c.id}>
+                    {c.nombre} - {c.telefono} ({c.compras} compras)
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {tipoCliente === 'nuevo' && (
+            <div className={styles.formGrid}>
+              <div className={styles.formGroup}>
+                <label>Nombre del Cliente *</label>
+                <input
+                  type="text"
+                  value={nuevoPedido.cliente_nombre}
+                  onChange={(e) => setNuevoPedido(prev => ({ ...prev, cliente_nombre: e.target.value }))}
+                  className="input"
+                  placeholder="Juan Pérez"
+                />
+              </div>
+
+              <div className={styles.formGroup}>
+                <label>Teléfono *</label>
+                <input
+                  type="tel"
+                  value={nuevoPedido.cliente_telefono}
+                  onChange={(e) => setNuevoPedido(prev => ({ ...prev, cliente_telefono: e.target.value.replace(/\D/g, '') }))}
+                  className="input"
+                  placeholder="3201234567"
+                  maxLength={10}
+                />
+              </div>
+            </div>
+          )}
 
           <div className={styles.formGroup}>
             <label>Notas</label>
