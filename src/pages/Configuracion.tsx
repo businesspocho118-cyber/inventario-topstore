@@ -1,17 +1,31 @@
 import { useState } from 'react';
 import { Database, Globe, RefreshCw, AlertCircle, CheckCircle } from 'lucide-react';
 import { useToast } from '../components/Toast';
+import { useApi } from '../hooks/useApi';
 import styles from './Configuracion.module.css';
 
 export function Configuracion() {
   const { showToast } = useToast();
+  const { syncWithCatalog } = useApi();
   const [isSyncing, setIsSyncing] = useState(false);
 
   const handleSync = async () => {
     setIsSyncing(true);
-    // Simular sincronización
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    showToast('Catálogo sincronizado correctamente', 'success');
+    try {
+      const result = await syncWithCatalog();
+      if (result.success && result.data) {
+        const { success, errors } = result.data;
+        if (errors.length > 0) {
+          showToast(`Sincronizado: ${success} productos. Errores: ${errors.length}`, 'warning');
+        } else {
+          showToast(`${success} productos sincronizados correctamente!`, 'success');
+        }
+      } else {
+        showToast(`Error: ${result.error}`, 'error');
+      }
+    } catch (error) {
+      showToast('Error al sincronizar con el catálogo', 'error');
+    }
     setIsSyncing(false);
   };
 

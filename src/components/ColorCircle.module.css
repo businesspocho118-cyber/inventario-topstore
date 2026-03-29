@@ -1,0 +1,78 @@
+.container {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.circle {
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.checkmark {
+  color: white;
+  font-size: 10px;
+  font-weight: bold;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+/* Sizes */
+.sm .circle {
+  width: 16px;
+  height: 16px;
+}
+
+.md .circle {
+  width: 24px;
+  height: 24px;
+}
+
+.lg .circle {
+  width: 32px;
+  height: 32px;
+}
+
+/* Clickable */
+.clickable {
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.clickable:hover {
+  transform: scale(1.1);
+}
+
+/* Selected */
+.selected .circle {
+  border-color: #8b5cf6;
+  box-shadow: 0 0 0 2px #8b5cf6;
+}
+
+.name {
+  font-size: 12px;
+  color: #9ca3af;
+  margin-left: 4px;
+}
+
+/* Container for multiple colors */
+.circlesContainer {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.circlesContainer .circle {
+  width: 18px;
+  height: 18px;
+}
+
+.more {
+  font-size: 11px;
+  color: #9ca3af;
+  margin-left: 2px;
+}

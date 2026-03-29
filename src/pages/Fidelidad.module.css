@@ -1,0 +1,256 @@
+.container {
+  padding: 24px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.title {
+  font-size: 28px;
+  font-weight: 700;
+  color: #fff;
+  margin: 0;
+}
+
+.subtitle {
+  color: #9ca3af;
+  margin: 4px 0 0;
+}
+
+.statsRow {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.filters {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.searchWrapper {
+  position: relative;
+  flex: 1;
+  max-width: 400px;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #6b7280;
+}
+
+.search {
+  width: 100%;
+  padding: 10px 12px 10px 40px;
+  background: #1f2937;
+  border: 1px solid #374151;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 14px;
+}
+
+.search:focus {
+  outline: none;
+  border-color: #8b5cf6;
+}
+
+.filterSelect {
+  padding: 10px 16px;
+  background: #1f2937;
+  border: 1px solid #374151;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.filterSelect:focus {
+  outline: none;
+  border-color: #8b5cf6;
+}
+
+.list {
+  display: grid;
+  gap: 16px;
+}
+
+.card {
+  background: #1f2937;
+  border-radius: 12px;
+  padding: 20px;
+  border: 1px solid #374151;
+  transition: all 0.2s;
+}
+
+.card:hover {
+  border-color: #4b5563;
+}
+
+.cardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.clienteInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.clienteNombre {
+  font-size: 18px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.clienteTelefono {
+  color: #9ca3af;
+  font-size: 14px;
+}
+
+.nivelBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.nivelBronze {
+  background: linear-gradient(135deg, #cd7f32 0%, #8b4513 100%);
+  color: #fff;
+}
+
+.nivelSilver {
+  background: linear-gradient(135deg, #c0c0c0 0%, #808080 100%);
+  color: #1f2937;
+}
+
+.nivelGold {
+  background: linear-gradient(135deg, #ffd700 0%, #daa520 100%);
+  color: #1f2937;
+}
+
+.nivelPlatinum {
+  background: linear-gradient(135deg, #e5e4e2 0%, #a0a0a0 100%);
+  color: #1f2937;
+}
+
+.cardBody {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.stat {
+  text-align: center;
+  padding: 12px;
+  background: #111827;
+  border-radius: 8px;
+}
+
+.statValue {
+  font-size: 24px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.statLabel {
+  font-size: 12px;
+  color: #9ca3af;
+  margin-top: 4px;
+}
+
+.cardFooter {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 16px;
+  border-top: 1px solid #374151;
+}
+
+.regaloInfo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.regaloText {
+  color: #9ca3af;
+  font-size: 14px;
+}
+
+.regaloNombre {
+  color: #8b5cf6;
+  font-weight: 600;
+}
+
+.ultimoPedido {
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.empty {
+  text-align: center;
+  padding: 60px 20px;
+  color: #6b7280;
+}
+
+.empty svg {
+  margin-bottom: 16px;
+}
+
+.empty h3 {
+  color: #9ca3af;
+  margin: 0 0 8px;
+}
+
+.empty p {
+  margin: 0;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .statsRow {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .cardBody {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .statsRow {
+    grid-template-columns: 1fr;
+  }
+  
+  .cardBody {
+    grid-template-columns: 1fr;
+  }
+  
+  .filters {
+    flex-direction: column;
+  }
+  
+  .searchWrapper {
+    max-width: none;
+  }
+}

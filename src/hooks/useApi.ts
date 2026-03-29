@@ -48,6 +48,94 @@ const saveToJson = async () => {
   console.log('Datos guardados en memoria');
 };
 
+// URL del Catálogo (Cloudflare Workers)
+const CATALOG_URL = 'https://topstore-catalogo.businesspocho118.workers.dev';
+
+// Sincronizar productos desde el Catálogo
+const syncFromCatalog = async (): Promise<{ success: number; errors: string[] }> => {
+  const errors: string[] = [];
+  let success = 0;
+
+  try {
+    // Obtener productos del catálogo (scraping del HTML)
+    const response = await fetch(CATALOG_URL);
+    const html = await response.text();
+    
+    // Parsear productos del HTML
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    const productCards = doc.querySelectorAll('.product-card');
+    
+    productCards.forEach((card, index) => {
+      try {
+        const productId = card.getAttribute('data-product-id') || '';
+        const name = card.getAttribute('data-name') || '';
+        const price = card.getAttribute('data-price') || '';
+        const colors = card.getAttribute('data-colors') || '';
+        const gender = card.getAttribute('data-gender') || '';
+        
+        // Obtener imágenes del gallery con URL completa
+        const galleryAttr = card.getAttribute('data-gallery') || '[]';
+        const gallery = JSON.parse(galleryAttr.replace(/&quot;/g, '"'));
+        const imagePaths = gallery.map((img: any) => {
+          const src = img.src || '';
+          // Si la URL es relativa, agregar la base del catálogo
+          if (src && !src.startsWith('http')) {
+            return `${CATALOG_URL}/${src}`;
+          }
+          return src;
+        });
+        
+        // Verificar si el producto ya existe
+        const existingIndex = productosDb.findIndex(p => p.product_id === productId);
+        const validGender = gender === 'mujeres' ? 'mujeres' : 'hombres';
+        
+        if (existingIndex !== -1) {
+          // Actualizar producto existente
+          productosDb[existingIndex] = {
+            ...productosDb[existingIndex],
+            nombre: name,
+            precio: price,
+            colores: colors,
+            genero: validGender,
+            image_paths: imagePaths,
+            updated_at: new Date().toISOString()
+          };
+        } else {
+          // Crear nuevo producto
+          const newProduct: Producto = {
+            id: nextProductoId++,
+            product_id: productId,
+            nombre: name,
+            descripcion: '',
+            precio: price,
+            colores: colors,
+            genero: validGender,
+            categoria: '',
+            image_paths: imagePaths,
+            stock: 0,
+            activo: true,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          };
+          productosDb.push(newProduct);
+        }
+        success++;
+      } catch (e) {
+        errors.push(`Error procesando producto ${index}: ${e}`);
+      }
+    });
+    
+    // Resetear dataLoaded para recargar datos
+    dataLoaded = true;
+    
+  } catch (error) {
+    errors.push(`Error conectando al catálogo: ${error}`);
+  }
+  
+  return { success, errors };
+};
+
 export function useApi() {
   const [isLoading, setIsLoading] = useState(false);
 
@@ -249,6 +337,19 @@ export function useApi() {
     return { success: true, data: pedidosDb[index] };
   }, []);
 
+  // Sincronizar con catálogo
+  const syncWithCatalog = useCallback(async (): Promise<ApiResponse<{ success: number; errors: string[] }>> => {
+    setIsLoading(true);
+    await loadData();
+    const result = await syncFromCatalog();
+    setIsLoading(false);
+    
+    if (result.errors.length > 0 && result.success === 0) {
+      return { success: false, error: result.errors.join(', ') };
+    }
+    return { success: true, data: result };
+  }, []);
+
   return {
     isLoading,
     getStats,
@@ -260,6 +361,7 @@ export function useApi() {
     getPedidos,
     getPedido,
     createPedido,
-    updatePedidoEstado
+    updatePedidoEstado,
+    syncWithCatalog
   };
 }
