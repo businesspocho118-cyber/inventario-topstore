@@ -22,19 +22,52 @@ let nextProductoId = 1;
 let nextPedidoId = 1;
 let dataLoaded = false;
 
-// Cargar datos desde JSON
+// Storage keys
+const STORAGE_KEYS = {
+  productos: 'topstore_productos',
+  pedidos: 'topstore_pedidos',
+  lastSync: 'topstore_last_sync'
+};
+
+// Guardar en localStorage
+const saveToStorage = () => {
+  try {
+    localStorage.setItem(STORAGE_KEYS.productos, JSON.stringify(productosDb));
+    localStorage.setItem(STORAGE_KEYS.pedidos, JSON.stringify(pedidosDb));
+    localStorage.setItem(STORAGE_KEYS.lastSync, new Date().toISOString());
+  } catch (e) {
+    console.error('Error guardando en localStorage:', e);
+  }
+};
+
+// Cargar datos desde JSON (con soporte localStorage)
 const loadData = async () => {
   if (dataLoaded) return;
   
   try {
-    const response = await fetch('/data/productos.json');
-    const data = await response.json() as { productos: Producto[]; pedidos: Pedido[] };
-    productosDb = data.productos || [];
-    pedidosDb = data.pedidos || [];
+    // Primero intentar cargar desde localStorage
+    const storedProductos = localStorage.getItem(STORAGE_KEYS.productos);
+    const storedPedidos = localStorage.getItem(STORAGE_KEYS.pedidos);
+    
+    if (storedProductos && storedPedidos) {
+      // Cargar desde localStorage
+      productosDb = JSON.parse(storedProductos);
+      pedidosDb = JSON.parse(storedPedidos);
+      console.log('Datos cargados desde localStorage:', productosDb.length, 'productos');
+    } else {
+      // Cargar desde JSON original
+      const response = await fetch('/data/productos.json');
+      const data = await response.json() as { productos: Producto[]; pedidos: Pedido[] };
+      productosDb = data.productos || [];
+      pedidosDb = data.pedidos || [];
+      // Guardar en localStorage para próxima vez
+      saveToStorage();
+      console.log('Datos cargados desde JSON:', productosDb.length, 'productos');
+    }
+    
     nextProductoId = (productosDb.length > 0 ? Math.max(...productosDb.map(p => p.id)) : 0) + 1;
     nextPedidoId = (pedidosDb.length > 0 ? Math.max(...pedidosDb.map(p => p.id)) : 0) + 1;
     dataLoaded = true;
-    console.log('Datos cargados:', productosDb.length, 'productos');
   } catch (error) {
     console.error('Error loading data:', error);
     productosDb = [];
@@ -43,9 +76,12 @@ const loadData = async () => {
   }
 };
 
-// Guardar a JSON (simulado)
-const saveToJson = async () => {
-  console.log('Datos guardados en memoria');
+// Resetear datos (recargar desde JSON original)
+const resetToOriginal = () => {
+  localStorage.removeItem(STORAGE_KEYS.productos);
+  localStorage.removeItem(STORAGE_KEYS.pedidos);
+  localStorage.removeItem(STORAGE_KEYS.lastSync);
+  dataLoaded = false;
 };
 
 // URL del Catálogo (Cloudflare Workers)
@@ -126,8 +162,8 @@ const syncFromCatalog = async (): Promise<{ success: number; errors: string[] }>
       }
     });
     
-    // Resetear dataLoaded para recargar datos
-    dataLoaded = true;
+    // Guardar datos sincronizados en localStorage
+    saveToStorage();
     
   } catch (error) {
     errors.push(`Error conectando al catálogo: ${error}`);
@@ -203,7 +239,7 @@ export function useApi() {
     };
     
     productosDb.push(nuevo);
-    await saveToJson();
+    await saveToStorage();
     
     setIsLoading(false);
     return { success: true, data: nuevo };
@@ -226,7 +262,7 @@ export function useApi() {
       updated_at: new Date().toISOString()
     };
     
-    await saveToJson();
+    await saveToStorage();
     
     setIsLoading(false);
     return { success: true, data: productosDb[index] };
@@ -246,7 +282,7 @@ export function useApi() {
     productosDb[index].activo = false;
     productosDb[index].updated_at = new Date().toISOString();
     
-    await saveToJson();
+    await saveToStorage();
     
     setIsLoading(false);
     return { success: true };
@@ -306,7 +342,7 @@ export function useApi() {
       }
     });
     
-    await saveToJson();
+    await saveToStorage();
     
     setIsLoading(false);
     return { success: true, data: nuevo };
@@ -331,7 +367,7 @@ export function useApi() {
     
     pedidosDb[index].estado = estado as Pedido['estado'];
     
-    await saveToJson();
+    await saveToStorage();
     
     setIsLoading(false);
     return { success: true, data: pedidosDb[index] };
@@ -350,6 +386,16 @@ export function useApi() {
     return { success: true, data: result };
   }, []);
 
+  // Obtener última sincronización
+  const getLastSync = useCallback((): string | null => {
+    return localStorage.getItem(STORAGE_KEYS.lastSync);
+  }, []);
+
+  // Resetear a datos originales
+  const resetData = useCallback(() => {
+    resetToOriginal();
+  }, []);
+
   return {
     isLoading,
     getStats,
@@ -362,6 +408,8 @@ export function useApi() {
     getPedido,
     createPedido,
     updatePedidoEstado,
-    syncWithCatalog
+    syncWithCatalog,
+    getLastSync,
+    resetData
   };
 }

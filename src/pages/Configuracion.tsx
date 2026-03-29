@@ -1,13 +1,23 @@
-import { useState } from 'react';
-import { Database, Globe, RefreshCw, AlertCircle, CheckCircle } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Database, Globe, RefreshCw, AlertCircle, CheckCircle, Trash2 } from 'lucide-react';
 import { useToast } from '../components/Toast';
 import { useApi } from '../hooks/useApi';
 import styles from './Configuracion.module.css';
 
 export function Configuracion() {
   const { showToast } = useToast();
-  const { syncWithCatalog } = useApi();
+  const { syncWithCatalog, getLastSync, resetData } = useApi();
   const [isSyncing, setIsSyncing] = useState(false);
+  const [lastSync, setLastSync] = useState<string | null>(null);
+
+  useEffect(() => {
+    setLastSync(getLastSync());
+  }, [getLastSync]);
+
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleString('es-CO');
+  };
 
   const handleSync = async () => {
     setIsSyncing(true);
@@ -20,6 +30,7 @@ export function Configuracion() {
         } else {
           showToast(`${success} productos sincronizados correctamente!`, 'success');
         }
+        setLastSync(getLastSync());
       } else {
         showToast(`Error: ${result.error}`, 'error');
       }
@@ -27,6 +38,14 @@ export function Configuracion() {
       showToast('Error al sincronizar con el catálogo', 'error');
     }
     setIsSyncing(false);
+  };
+
+  const handleReset = () => {
+    if (confirm('¿Querés resetear los datos a los originales?')) {
+      resetData();
+      showToast('Datos reseteados. Recargá la página.', 'success');
+      setTimeout(() => window.location.reload(), 1000);
+    }
   };
 
   return (
@@ -52,26 +71,35 @@ export function Configuracion() {
                 <h4>Estado de Sincronización</h4>
                 <p className={styles.statusText}>
                   <CheckCircle size={14} className={styles.statusIcon} />
-                  Sincronizado
+                  {lastSync ? `Última sync: ${formatDate(lastSync)}` : 'Sin sincronizar'}
                 </p>
               </div>
-              <button 
-                className="btn btn-secondary"
-                onClick={handleSync}
-                disabled={isSyncing}
-              >
-                {isSyncing ? (
-                  <>
-                    <span className={styles.spinner} />
-                    Sincronizando...
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw size={16} />
-                    Sincronizar Ahora
-                  </>
-                )}
-              </button>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button 
+                  className="btn btn-secondary"
+                  onClick={handleSync}
+                  disabled={isSyncing}
+                >
+                  {isSyncing ? (
+                    <>
+                      <span className={styles.spinner} />
+                      Sincronizando...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw size={16} />
+                      Sincronizar Ahora
+                    </>
+                  )}
+                </button>
+                <button 
+                  className="btn btn-danger"
+                  onClick={handleReset}
+                  title="Resetear a datos originales"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
             </div>
           </div>
         </section>
