@@ -379,11 +379,19 @@ export function useApi() {
     
     pedidosDb.push(nuevo);
     
-    // Reducir stock de productos
+    // Reducir stock de productos (general y por color)
     req.items.forEach(item => {
       const producto = productosDb.find(p => p.id === item.producto_id);
       if (producto) {
+        // Reducir stock general
         producto.stock = Math.max(0, producto.stock - item.cantidad);
+        
+        // Reducir stock por color si está especificado
+        if (item.color && producto.stock_por_color) {
+          const colorStock = producto.stock_por_color[item.color] || 0;
+          producto.stock_por_color[item.color] = Math.max(0, colorStock - item.cantidad);
+        }
+        
         producto.updated_at = new Date().toISOString();
       }
     });

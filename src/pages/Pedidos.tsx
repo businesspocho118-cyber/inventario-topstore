@@ -27,7 +27,9 @@ interface PedidoItem {
   producto_id: number;
   cantidad: number;
   precio_unitario: number;
+  color: string;
   producto_nombre?: string;
+  colores_disponibles?: string[];
 }
 
 export function Pedidos() {
@@ -53,6 +55,7 @@ export function Pedidos() {
     items: []
   });
   const [productoSeleccionado, setProductoSeleccionado] = useState<number | ''>('');
+  const [colorSeleccionado, setColorSeleccionado] = useState<string>('');
 
   useEffect(() => {
     loadData();
@@ -105,20 +108,37 @@ export function Pedidos() {
 
   const handleCloseModal = () => {
     setIsModalOpen(false);
+    setProductoSeleccionado('');
+    setColorSeleccionado('');
   };
 
   const addItem = () => {
-    if (productoSeleccionado === '') return;
+    if (productoSeleccionado === '' || colorSeleccionado === '') return;
     
     const producto = productos.find(p => p.id === Number(productoSeleccionado));
     if (!producto) return;
     
-    const existingIndex = nuevoPedido.items.findIndex(item => item.producto_id === producto.id);
+    // Verificar stock disponible del color
+    const stockColor = producto.stock_por_color?.[colorSeleccionado] || 0;
+    if (stockColor === 0) {
+      showToast(`No hay stock disponible en color ${colorSeleccionado}`, 'error');
+      return;
+    }
+    
+    const existingIndex = nuevoPedido.items.findIndex(
+      item => item.producto_id === producto.id && item.color === colorSeleccionado
+    );
     
     if (existingIndex >= 0) {
       const items = [...nuevoPedido.items];
-      items[existingIndex].cantidad += 1;
-      setNuevoPedido(prev => ({ ...prev, items }));
+      // Verificar que no exceda el stock
+      if (items[existingIndex].cantidad < stockColor) {
+        items[existingIndex].cantidad += 1;
+        setNuevoPedido(prev => ({ ...prev, items }));
+      } else {
+        showToast(`Stock máximo alcanzado para ${colorSeleccionado}`, 'warning');
+        return;
+      }
     } else {
       setNuevoPedido(prev => ({
         ...prev,
@@ -128,13 +148,16 @@ export function Pedidos() {
             producto_id: producto.id,
             cantidad: 1,
             precio_unitario: parseInt(producto.precio.replace(/[$.]/g, '')) || 0,
-            producto_nombre: producto.nombre
+            color: colorSeleccionado,
+            producto_nombre: producto.nombre,
+            colores_disponibles: producto.colores.split(', ')
           }
         ]
       }));
     }
     
     setProductoSeleccionado('');
+    setColorSeleccionado('');
   };
 
   const updateItemCantidad = (index: number, cantidad: number) => {
@@ -164,7 +187,8 @@ export function Pedidos() {
       items: nuevoPedido.items.map(item => ({
         producto_id: item.producto_id,
         cantidad: item.cantidad,
-        precio_unitario: item.precio_unitario
+        precio_unitario: item.precio_unitario,
+        color: item.color
       }))
     });
 
@@ -390,7 +414,10 @@ export function Pedidos() {
             <div className={styles.addItemRow}>
               <select
                 value={productoSeleccionado}
-                onChange={(e) => setProductoSeleccionado(e.target.value as number | '')}
+                onChange={(e) => {
+                  setProductoSeleccionado(e.target.value as number | '');
+                  setColorSeleccionado('');
+                }}
                 className="input"
               >
                 <option value="">Seleccionar producto...</option>
@@ -400,7 +427,34 @@ export function Pedidos() {
                   </option>
                 ))}
               </select>
-              <button type="button" className="btn btn-secondary" onClick={addItem}>
+              {productoSeleccionado && (
+                <select
+                  value={colorSeleccionado}
+                  onChange={(e) => setColorSeleccionado(e.target.value)}
+                  className="input"
+                >
+                  <option value="">Seleccionar color...</option>
+                  {(() => {
+                    const producto = productos.find(p => p.id === Number(productoSeleccionado));
+                    if (!producto) return null;
+                    const colores = producto.colores.split(', ');
+                    return colores.map(color => {
+                      const stock = producto.stock_por_color?.[color] || 0;
+                      return (
+                        <option key={color} value={color} disabled={stock === 0}>
+                          {color} {stock > 0 ? `(${stock} disp.)` : '(sin stock)'}
+                        </option>
+                      );
+                    });
+                  })()}
+                </select>
+              )}
+              <button 
+                type="button" 
+                className="btn btn-secondary" 
+                onClick={addItem}
+                disabled={!productoSeleccionado || !colorSeleccionado}
+              >
                 <Plus size={18} />
               </button>
             </div>
@@ -411,7 +465,10 @@ export function Pedidos() {
               <h4>Productos</h4>
               {nuevoPedido.items.map((item, index) => (
                 <div key={index} className={styles.item}>
-                  <span className={styles.itemNombre}>{item.producto_nombre}</span>
+                  <div className={styles.itemInfo}>
+                    <span className={styles.itemNombre}>{item.producto_nombre}</span>
+                    <span className={styles.itemColor}>Color: {item.color}</span>
+                  </div>
                   <div className={styles.itemCantidad}>
                     <button 
                       type="button"
