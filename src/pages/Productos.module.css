@@ -263,6 +263,31 @@
   color: var(--color-text-tertiary);
 }
 
+/* Círculos de color */
+.colorCircles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+  margin-top: var(--space-2);
+}
+
+.colorItem {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--color-bg-secondary);
+  padding: 2px 6px;
+  border-radius: var(--radius-full);
+}
+
+.colorStock {
+  font-size: 10px;
+  font-weight: var(--font-medium);
+  color: var(--color-text-secondary);
+  min-width: 12px;
+}
+
 /* Form */
 .form {
   display: flex;

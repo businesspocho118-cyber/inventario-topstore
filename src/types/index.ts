@@ -7,6 +7,7 @@ export interface Producto {
   descripcion: string;
   precio: string;
   colores: string;
+  stock_por_color?: Record<string, number>;
   genero: 'hombres' | 'mujeres';
   categoria: string;
   image_paths: string[];

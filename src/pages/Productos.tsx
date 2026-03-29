@@ -4,6 +4,7 @@ import { useApi } from '../hooks/useApi';
 import { useToast } from '../components/Toast';
 import { Modal } from '../components/Modal';
 import { PageLoading } from '../components/Loading';
+import { ColorCircle } from '../components/ColorCircle';
 import type { Producto, CreateProductoRequest, UpdateProductoRequest } from '../types';
 import styles from './Productos.module.css';
 
@@ -238,7 +239,16 @@ export function Productos() {
                 <span className={styles.categoria}>{producto.categoria}</span>
                 <h3 className={styles.productName}>{producto.nombre}</h3>
                 <p className={styles.precio}>{producto.precio}</p>
-                <p className={styles.colores}>{producto.colores}</p>
+                <div className={styles.colorCircles}>
+                  {producto.colores.split(', ').map((color, idx) => (
+                    <div key={idx} className={styles.colorItem}>
+                      <ColorCircle color={color} size="sm" />
+                      <span className={styles.colorStock}>
+                        {producto.stock_por_color?.[color] ?? 0}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           ))}
