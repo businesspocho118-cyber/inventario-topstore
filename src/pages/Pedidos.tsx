@@ -187,8 +187,19 @@ export function Pedidos() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Validar campos requeridos
+    if (!nuevoPedido.cliente_nombre.trim()) {
+      showToast('⚠️ Falta el nombre del cliente', 'warning');
+      return;
+    }
+    
+    if (!nuevoPedido.cliente_telefono.trim()) {
+      showToast('⚠️ Falta el teléfono del cliente', 'warning');
+      return;
+    }
+    
     if (nuevoPedido.items.length === 0) {
-      showToast('Agrega al menos un producto', 'warning');
+      showToast('⚠️ Agrega al menos un producto', 'warning');
       return;
     }
 
@@ -386,26 +397,24 @@ export function Pedidos() {
         <form className={styles.form}>
           <div className={styles.formGrid}>
             <div className={styles.formGroup}>
-              <label>Nombre del Cliente</label>
+              <label>Nombre del Cliente *</label>
               <input
                 type="text"
                 value={nuevoPedido.cliente_nombre}
                 onChange={(e) => setNuevoPedido(prev => ({ ...prev, cliente_nombre: e.target.value }))}
                 className="input"
                 placeholder="Juan Pérez"
-                required
               />
             </div>
 
             <div className={styles.formGroup}>
-              <label>Teléfono</label>
+              <label>Teléfono *</label>
               <input
                 type="tel"
                 value={nuevoPedido.cliente_telefono}
                 onChange={(e) => setNuevoPedido(prev => ({ ...prev, cliente_telefono: e.target.value }))}
                 className="input"
                 placeholder="3201234567"
-                required
               />
             </div>
           </div>
