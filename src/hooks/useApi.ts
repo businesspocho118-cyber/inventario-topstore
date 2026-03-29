@@ -89,10 +89,11 @@ const resetToOriginal = () => {
 // URL del Catálogo (Cloudflare Workers)
 const CATALOG_URL = 'https://topstore-catalogo.businesspocho118.workers.dev';
 
-// Sincronizar productos desde el Catálogo
-const syncFromCatalog = async (): Promise<{ success: number; errors: string[] }> => {
+// Sincronizar productos desde el Catálogo (SYNC COMPLETO)
+const syncFromCatalog = async (): Promise<{ success: number; removed: number; errors: string[] }> => {
   const errors: string[] = [];
   let success = 0;
+  let removed = 0;
 
   try {
     // Obtener productos del catálogo (scraping del HTML)
@@ -104,9 +105,14 @@ const syncFromCatalog = async (): Promise<{ success: number; errors: string[] }>
     const doc = parser.parseFromString(html, 'text/html');
     const productCards = doc.querySelectorAll('.product-card');
     
+    // Lista de product_ids que están en el catálogo
+    const catalogProductIds: string[] = [];
+    
     productCards.forEach((card, index) => {
       try {
         const productId = card.getAttribute('data-product-id') || '';
+        catalogProductIds.push(productId);
+        
         const name = card.getAttribute('data-name') || '';
         const price = card.getAttribute('data-price') || '';
         const colors = card.getAttribute('data-colors') || '';
@@ -151,6 +157,7 @@ const syncFromCatalog = async (): Promise<{ success: number; errors: string[] }>
             stock: totalStock,
             genero: validGender,
             image_paths: imagePaths,
+            activo: true, // Asegurar que esté activo
             updated_at: new Date().toISOString()
           };
         } else {
@@ -179,6 +186,15 @@ const syncFromCatalog = async (): Promise<{ success: number; errors: string[] }>
       }
     });
     
+    // QUITAR productos que ya NO están en el catálogo
+    productosDb.forEach((producto) => {
+      if (!catalogProductIds.includes(producto.product_id) && producto.activo) {
+        producto.activo = false;
+        producto.updated_at = new Date().toISOString();
+        removed++;
+      }
+    });
+    
     // Guardar datos sincronizados en localStorage
     saveToStorage();
     
@@ -186,7 +202,7 @@ const syncFromCatalog = async (): Promise<{ success: number; errors: string[] }>
     errors.push(`Error conectando al catálogo: ${error}`);
   }
   
-  return { success, errors };
+  return { success, removed, errors };
 };
 
 export function useApi() {
@@ -391,7 +407,7 @@ export function useApi() {
   }, []);
 
   // Sincronizar con catálogo
-  const syncWithCatalog = useCallback(async (): Promise<ApiResponse<{ success: number; errors: string[] }>> => {
+  const syncWithCatalog = useCallback(async (): Promise<ApiResponse<{ success: number; removed: number; errors: string[] }>> => {
     setIsLoading(true);
     await loadData();
     const result = await syncFromCatalog();

@@ -24,11 +24,11 @@ export function Configuracion() {
     try {
       const result = await syncWithCatalog();
       if (result.success && result.data) {
-        const { success, errors } = result.data;
+        const { success, removed, errors } = result.data;
         if (errors.length > 0) {
-          showToast(`Sincronizado: ${success} productos. Errores: ${errors.length}`, 'warning');
+          showToast(`${success} sincronizados, ${removed} quitados. ${errors.length} errores.`, 'warning');
         } else {
-          showToast(`${success} productos sincronizados correctamente!`, 'success');
+          showToast(`✅ ${success} productos sincronizados, ${removed} quitados`, 'success');
         }
         setLastSync(getLastSync());
       } else {
