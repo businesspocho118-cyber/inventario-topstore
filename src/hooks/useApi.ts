@@ -134,20 +134,25 @@ const syncFromCatalog = async (): Promise<{ success: number; removed: number; er
         const existingIndex = productosDb.findIndex(p => p.product_id === productId);
         const validGender = gender === 'mujeres' ? 'mujeres' : 'hombres';
         
-        // Crear stock_por_color basado en los colores del catálogo
-        // CADA COLOR = 1 UNIDAD (SIEMPRE, sin importar si ya existía)
+        // Obtener colores del catálogo
         const colorList = colors.split(', ').map((c: string) => c.trim()).filter((c: string) => c);
         const newStockPorColor: Record<string, number> = {};
         
-        // Asignar 1 unidad a cada color (SIEMPRE)
-        colorList.forEach((color: string) => {
-          newStockPorColor[color] = 1;
-        });
-        
-        const totalStock = colorList.length; // Stock total = cantidad de colores
-        
         if (existingIndex !== -1) {
-          // Actualizar producto existente
+          // Producto existente: PRESERVAR stock de colores que ya existían
+          const existingStock = productosDb[existingIndex].stock_por_color || {};
+          
+          // Para cada color del catálogo
+          colorList.forEach((color: string) => {
+            // Si el color YA existe → mantener su stock actual
+            // Si el color es NUEVO → iniciar en 0
+            newStockPorColor[color] = existingStock[color] !== undefined ? existingStock[color] : 0;
+          });
+          
+          // Calcular stock total (suma de todos los colores)
+          const totalStock = Object.values(newStockPorColor).reduce((a, b) => a + b, 0);
+          
+          // Actualizar producto existente SIN perder ventas
           productosDb[existingIndex] = {
             ...productosDb[existingIndex],
             nombre: name,
@@ -157,10 +162,18 @@ const syncFromCatalog = async (): Promise<{ success: number; removed: number; er
             stock: totalStock,
             genero: validGender,
             image_paths: imagePaths,
-            activo: true, // Asegurar que esté activo
+            activo: true,
             updated_at: new Date().toISOString()
           };
         } else {
+          // Producto nuevo: cada color inicia en 0
+          colorList.forEach((color: string) => {
+            newStockPorColor[color] = 0;
+          });
+          
+          // Calcular stock total
+          const totalStock = Object.values(newStockPorColor).reduce((a, b) => a + b, 0);
+          
           // Crear nuevo producto
           const newProduct: Producto = {
             id: nextProductoId++,
