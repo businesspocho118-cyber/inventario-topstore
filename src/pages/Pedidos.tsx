@@ -162,6 +162,18 @@ export function Pedidos() {
 
   const updateItemCantidad = (index: number, cantidad: number) => {
     if (cantidad < 1) return;
+    
+    const item = nuevoPedido.items[index];
+    const producto = productos.find(p => p.id === item.producto_id);
+    if (!producto) return;
+    
+    const stockDisponible = producto.stock_por_color?.[item.color] || 0;
+    
+    if (cantidad > stockDisponible) {
+      showToast(`Stock máximo disponible: ${stockDisponible}`, 'warning');
+      return;
+    }
+    
     const items = [...nuevoPedido.items];
     items[index].cantidad = cantidad;
     setNuevoPedido(prev => ({ ...prev, items }));
