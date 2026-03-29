@@ -26,8 +26,6 @@ export function Fidelidad() {
   const { showToast } = useToast();
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [nuevoCliente, setNuevoCliente] = useState({ nombre: '', telefono: '' });
 
   useEffect(() => {
     loadClientes();
@@ -43,26 +41,6 @@ export function Fidelidad() {
   const saveClientes = (newClientes: Cliente[]) => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(newClientes));
     setClientes(newClientes);
-  };
-
-  const handleAgregarCliente = () => {
-    if (!nuevoCliente.nombre.trim() || !nuevoCliente.telefono.trim()) {
-      showToast('Nombre y teléfono son requeridos', 'warning');
-      return;
-    }
-
-    const cliente: Cliente = {
-      id: Date.now(),
-      nombre: nuevoCliente.nombre,
-      telefono: nuevoCliente.telefono,
-      compras: 0,
-      created_at: new Date().toISOString()
-    };
-
-    saveClientes([...clientes, cliente]);
-    setNuevoCliente({ nombre: '', telefono: '' });
-    setIsModalOpen(false);
-    showToast('Cliente agregado', 'success');
   };
 
   const handleAgregarCompra = (clienteId: number) => {
@@ -125,10 +103,6 @@ export function Fidelidad() {
           <h1 className={styles.title}>Programa de Fidelidad</h1>
           <p className={styles.subtitle}>Desde 2ª compra = {PORCENTAJE_DESCUENTO}% descuento ({COMPRAS_PARA_DESCUENTO} compras)</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setIsModalOpen(true)}>
-          <Plus size={18} />
-          Nuevo Cliente
-        </button>
       </header>
 
       {/* Stats */}
@@ -246,42 +220,10 @@ export function Fidelidad() {
         </div>
       )}
 
-      {/* Modal */}
-      {isModalOpen && (
-        <div className={styles.modalOverlay} onClick={() => setIsModalOpen(false)}>
-          <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-            <h2>Agregar Cliente</h2>
-            <div className={styles.formGroup}>
-              <label>Nombre</label>
-              <input
-                type="text"
-                value={nuevoCliente.nombre}
-                onChange={(e) => setNuevoCliente(prev => ({ ...prev, nombre: e.target.value }))}
-                placeholder="Nombre del cliente"
-                className="input"
-              />
-            </div>
-            <div className={styles.formGroup}>
-              <label>Teléfono</label>
-              <input
-                type="text"
-                value={nuevoCliente.telefono}
-                onChange={(e) => setNuevoCliente(prev => ({ ...prev, telefono: e.target.value }))}
-                placeholder="300 123 4567"
-                className="input"
-              />
-            </div>
-            <div className={styles.modalActions}>
-              <button className="btn btn-secondary" onClick={() => setIsModalOpen(false)}>
-                Cancelar
-              </button>
-              <button className="btn btn-primary" onClick={handleAgregarCliente}>
-                Agregar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Los clientes se agregan desde Ventas */}
+      <div className={styles.infoBox}>
+        <p>Los clientes se agregan automáticamente cuando creás una venta con cliente nuevo.</p>
+      </div>
     </div>
   );
 }
