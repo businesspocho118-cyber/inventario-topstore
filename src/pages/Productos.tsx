@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Plus, Search, Edit2, Trash2, Package, Image as ImageIcon, X } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Plus, Search, Edit2, Trash2, Package, Image as ImageIcon, X, Minus } from 'lucide-react';
 import { useApi } from '../hooks/useApi';
 import { useToast } from '../components/Toast';
 import { Modal } from '../components/Modal';
@@ -8,12 +8,17 @@ import { ColorCircle } from '../components/ColorCircle';
 import type { Producto, CreateProductoRequest, UpdateProductoRequest } from '../types';
 import styles from './Productos.module.css';
 
-const initialForm: CreateProductoRequest = {
+interface FormData extends CreateProductoRequest {
+  stock_por_color?: Record<string, number>;
+}
+
+const initialForm: FormData = {
   product_id: '',
   nombre: '',
   descripcion: '',
   precio: '',
   colores: '',
+  stock_por_color: {},
   genero: 'mujeres',
   categoria: '',
   image_paths: [],
@@ -30,7 +35,7 @@ export function Productos() {
   const [filterGenero, setFilterGenero] = useState<'all' | 'hombres' | 'mujeres'>('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProducto, setEditingProducto] = useState<Producto | null>(null);
-  const [formData, setFormData] = useState<CreateProductoRequest>(initialForm);
+  const [formData, setFormData] = useState<FormData>(initialForm);
   const [imageInput, setImageInput] = useState('');
 
   useEffect(() => {
@@ -66,12 +71,19 @@ export function Productos() {
   const handleOpenModal = (producto?: Producto) => {
     if (producto) {
       setEditingProducto(producto);
+      // Parsear colores y crear stock_por_color si no existe
+      const coloresList = producto.colores.split(', ').filter(c => c.trim());
+      const stockPorColor = producto.stock_por_color || {};
+      coloresList.forEach(c => {
+        if (stockPorColor[c] === undefined) stockPorColor[c] = 0;
+      });
       setFormData({
         product_id: producto.product_id,
         nombre: producto.nombre,
         descripcion: producto.descripcion,
         precio: producto.precio,
         colores: producto.colores,
+        stock_por_color: stockPorColor,
         genero: producto.genero,
         categoria: producto.categoria,
         image_paths: producto.image_paths,
@@ -142,6 +154,47 @@ export function Productos() {
       ...prev,
       image_paths: prev.image_paths.filter((_, i) => i !== index)
     }));
+  };
+
+  // Actualizar stock de un color específico
+  const updateColorStock = (color: string, delta: number) => {
+    setFormData(prev => {
+      const newStockPorColor = { ...prev.stock_por_color };
+      const currentStock = newStockPorColor[color] || 0;
+      const newStock = Math.max(0, currentStock + delta);
+      newStockPorColor[color] = newStock;
+      
+      // Calcular stock total
+      const totalStock = Object.values(newStockPorColor).reduce((a, b) => a + b, 0);
+      
+      return {
+        ...prev,
+        stock_por_color: newStockPorColor,
+        stock: totalStock
+      };
+    });
+  };
+
+  // Cuando cambian los colores, actualizar stock_por_color
+  const handleColorsChange = (newColors: string) => {
+    setFormData(prev => {
+      const colorList = newColors.split(', ').map(c => c.trim()).filter(c => c);
+      const newStockPorColor: Record<string, number> = {};
+      
+      colorList.forEach(color => {
+        // Preservar stock existente o inicializar en 0
+        newStockPorColor[color] = prev.stock_por_color?.[color] ?? 0;
+      });
+      
+      const totalStock = Object.values(newStockPorColor).reduce((a, b) => a + b, 0);
+      
+      return {
+        ...prev,
+        colores: newColors,
+        stock_por_color: newStockPorColor,
+        stock: totalStock
+      };
+    });
   };
 
   const categorias = ['Camisas', 'Buzos', 'Chaquetas', 'Conjuntos', 'Enterizos', 'Leggings', 'Shorts', 'Tops', 'Medias'];
@@ -312,14 +365,11 @@ export function Productos() {
             </div>
 
             <div className={styles.formGroup}>
-              <label>Stock</label>
-              <input
-                type="number"
-                value={formData.stock}
-                onChange={(e) => setFormData(prev => ({ ...prev, stock: parseInt(e.target.value) || 0 }))}
-                className="input"
-                min="0"
-              />
+              <label>Stock Total (calculado)</label>
+              <div className={styles.stockDisplay}>
+                <span className={styles.stockTotal}>{formData.stock}</span>
+                <span className={styles.stockLabel}>unidades totales</span>
+              </div>
             </div>
 
             <div className={styles.formGroup}>
@@ -354,12 +404,44 @@ export function Productos() {
               <input
                 type="text"
                 value={formData.colores}
-                onChange={(e) => setFormData(prev => ({ ...prev, colores: e.target.value }))}
+                onChange={(e) => handleColorsChange(e.target.value)}
                 className="input"
                 placeholder="Negro, Blanco, Gris"
               />
             </div>
           </div>
+
+          {/* Editor de stock por color */}
+          {formData.colores && (
+            <div className={styles.formGroup}>
+              <label>Stock por Color</label>
+              <div className={styles.colorStockEditor}>
+                {formData.colores.split(', ').filter(c => c.trim()).map((color) => (
+                  <div key={color} className={styles.colorStockItem}>
+                    <ColorCircle color={color} size="sm" />
+                    <span className={styles.colorName}>{color}</span>
+                    <div className={styles.stockControls}>
+                      <button 
+                        type="button"
+                        className={styles.stockBtn}
+                        onClick={() => updateColorStock(color, -1)}
+                      >
+                        <Minus size={14} />
+                      </button>
+                      <span className={styles.stockValue}>{formData.stock_por_color?.[color] || 0}</span>
+                      <button 
+                        type="button"
+                        className={styles.stockBtn}
+                        onClick={() => updateColorStock(color, 1)}
+                      >
+                        <Plus size={14} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className={styles.formGroup}>
             <label>Descripción</label>
