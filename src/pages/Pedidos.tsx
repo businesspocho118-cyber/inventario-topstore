@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { ShoppingCart, Search, Plus, X, Check, Truck, Package, Clock, Trash2, Users } from 'lucide-react';
-import { useApi } from '../hooks/useApi';
+import { useFirestoreData } from '../contexts/FirestoreContext';
 import { useToast } from '../components/Toast';
 import { Modal } from '../components/Modal';
 import { PageLoading } from '../components/Loading';
@@ -40,11 +40,9 @@ interface PedidoItem {
 }
 
 export function Pedidos() {
-  const { getPedidos, getProductos, createPedido, updatePedidoEstado, deletePedido, isLoading } = useApi();
+  const { pedidos, productos, clientes, isReady, getProductos, createPedido, updatePedidoEstado, deletePedido } = useFirestoreData();
   const { showToast } = useToast();
   
-  const [pedidos, setPedidos] = useState<Pedido[]>([]);
-  const [productos, setProductos] = useState<Producto[]>([]);
   const [filteredPedidos, setFilteredPedidos] = useState<Pedido[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterEstado, setFilterEstado] = useState<string>('all');
@@ -72,54 +70,21 @@ export function Pedidos() {
   const [productoSeleccionado, setProductoSeleccionado] = useState<number | ''>('');
   const [colorSeleccionado, setColorSeleccionado] = useState<string>('');
   const [tipoCliente, setTipoCliente] = useState<'nuevo' | 'existente'>('nuevo');
-  const [clientesFidelidad, setClientesFidelidad] = useState<ClienteFidelidad[]>([]);
   const [clienteSeleccionado, setClienteSeleccionado] = useState<number | ''>('');
 
+  // Sync pedidos when they change
   useEffect(() => {
-    loadData();
-  }, []);
-
-  useEffect(() => {
-    let filtered = pedidos;
-    
-    if (searchTerm) {
-      filtered = filtered.filter(p => 
-        p.cliente_nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.cliente_telefono.includes(searchTerm) ||
-        p.id.toString().includes(searchTerm)
-      );
-    }
-    
-    if (filterEstado !== 'all') {
-      filtered = filtered.filter(p => p.estado === filterEstado);
-    }
-    
-    setFilteredPedidos(filtered);
-  }, [searchTerm, filterEstado, pedidos]);
+    setFilteredPedidos(pedidos);
+  }, [pedidos]);
 
   const loadData = async () => {
-    const [pedidosResult, productosResult] = await Promise.all([
-      getPedidos(),
-      getProductos()
-    ]);
-    
-    if (pedidosResult.success && pedidosResult.data) {
-      setPedidos(pedidosResult.data);
-      setFilteredPedidos(pedidosResult.data);
-    }
-    
-    if (productosResult.success && productosResult.data) {
-      setProductos(productosResult.data);
-    }
+    // Datos se cargan automáticamente desde Firestore
+    // Solo necesitamos cargar clientes de Firestore
+    await getProductos();
   };
 
   const handleOpenModal = () => {
-    // Cargar clientes de fidelidad
-    const stored = localStorage.getItem('topstore_clientes_fidelidad');
-    if (stored) {
-      setClientesFidelidad(JSON.parse(stored));
-    }
-    
+    // Los clientes ya se cargan desde Firestore
     setNuevoPedido({
       cliente_nombre: '',
       cliente_telefono: '',
@@ -144,7 +109,7 @@ export function Pedidos() {
 
   const handleClienteExistenteChange = (clienteId: number) => {
     setClienteSeleccionado(clienteId);
-    const cliente = clientesFidelidad.find(c => c.id === clienteId);
+    const cliente = clientes.find(c => Number(c.id) === clienteId);
     if (cliente) {
       setNuevoPedido(prev => ({
         ...prev,
@@ -255,50 +220,47 @@ export function Pedidos() {
       return;
     }
 
-    const result = await createPedido({
-      cliente_nombre: nuevoPedido.cliente_nombre,
-      cliente_telefono: nuevoPedido.cliente_telefono,
-      cliente_direccion: nuevoPedido.cliente_direccion,
-      cliente_barrio: nuevoPedido.cliente_barrio,
-      cliente_referencias: nuevoPedido.cliente_referencias,
-      metodo_pago: nuevoPedido.metodo_pago,
-      notas: nuevoPedido.notas,
-      items: nuevoPedido.items.map(item => ({
-        producto_id: item.producto_id,
-        cantidad: item.cantidad,
-        precio_unitario: item.precio_unitario,
-        color: item.color
-      }))
-    });
-
-    if (result.success) {
+    try {
+      await createPedido({
+        cliente_nombre: nuevoPedido.cliente_nombre,
+        cliente_telefono: nuevoPedido.cliente_telefono,
+        cliente_direccion: nuevoPedido.cliente_direccion,
+        cliente_barrio: nuevoPedido.cliente_barrio,
+        cliente_referencias: nuevoPedido.cliente_referencias,
+        metodo_pago: nuevoPedido.metodo_pago,
+        notas: nuevoPedido.notas,
+        total: nuevoPedido.items.reduce((sum, item) => sum + (item.cantidad * item.precio_unitario), 0),
+        items: nuevoPedido.items.map(item => ({
+          producto_id: item.producto_id,
+          cantidad: item.cantidad,
+          precio_unitario: item.precio_unitario,
+          color: item.color
+        }))
+      });
       showToast('Pedido creado correctamente', 'success');
-      loadData();
       handleCloseModal();
-    } else {
-      showToast(result.error || 'Error al crear pedido', 'error');
+    } catch (err) {
+      showToast('Error al crear pedido', 'error');
     }
   };
 
   const handleCambiarEstado = async (pedidoId: number, nuevoEstado: string) => {
-    const result = await updatePedidoEstado(pedidoId, nuevoEstado);
-    if (result.success) {
+    try {
+      await updatePedidoEstado(pedidoId, nuevoEstado);
       showToast('Estado actualizado', 'success');
-      loadData();
-    } else {
-      showToast(result.error || 'Error al actualizar', 'error');
+    } catch (err) {
+      showToast('Error al actualizar', 'error');
     }
   };
 
   const handleEliminarPedido = async (pedidoId: number) => {
     if (!confirm(`¿Eliminar pedido #${pedidoId}? Se re-numerarán los pedidos.`)) return;
     
-    const result = await deletePedido(pedidoId);
-    if (result.success) {
+    try {
+      await deletePedido(pedidoId);
       showToast('Pedido eliminado y pedidos re-numerados', 'success');
-      loadData();
-    } else {
-      showToast(result.error || 'Error al eliminar', 'error');
+    } catch (err) {
+      showToast('Error al eliminar', 'error');
     }
   };
 
@@ -320,7 +282,7 @@ export function Pedidos() {
     });
   };
 
-  if (isLoading && pedidos.length === 0) {
+  if (!isReady) {
     return <PageLoading />;
   }
 
@@ -470,14 +432,14 @@ export function Pedidos() {
                 type="button"
                 className={`${styles.tipoBtn} ${tipoCliente === 'existente' ? styles.tipoBtnActive : ''}`}
                 onClick={() => setTipoCliente('existente')}
-                disabled={clientesFidelidad.length === 0}
+                disabled={clientes.length === 0}
               >
                 <Users size={16} /> Cliente Existente
               </button>
             </div>
           </div>
 
-          {tipoCliente === 'existente' && clientesFidelidad.length > 0 && (
+          {tipoCliente === 'existente' && clientes.length > 0 && (
             <div className={styles.formGroup}>
               <label>Seleccionar Cliente</label>
               <select
@@ -486,7 +448,7 @@ export function Pedidos() {
                 className="input"
               >
                 <option value="">Seleccionar cliente...</option>
-                {clientesFidelidad.map(c => (
+                {clientes.map(c => (
                   <option key={c.id} value={c.id}>
                     {c.nombre} - {c.telefono} ({c.compras} compras)
                   </option>

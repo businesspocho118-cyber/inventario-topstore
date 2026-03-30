@@ -8,6 +8,7 @@ import { Productos } from './pages/Productos';
 import { Pedidos } from './pages/Pedidos';
 import { Fidelidad } from './pages/Fidelidad';
 import { Configuracion } from './pages/Configuracion';
+import { FirestoreProvider } from './contexts/FirestoreContext';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
@@ -82,7 +83,9 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
         <ToastProvider>
-          <AppRoutes />
+          <FirestoreProvider>
+            <AppRoutes />
+          </FirestoreProvider>
         </ToastProvider>
       </AuthProvider>
     </BrowserRouter>

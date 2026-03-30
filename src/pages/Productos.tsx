@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Plus, Search, Edit2, Trash2, Package, Image as ImageIcon, X, Minus } from 'lucide-react';
-import { useApi } from '../hooks/useApi';
+import { useFirestoreData } from '../contexts/FirestoreContext';
 import { useToast } from '../components/Toast';
 import { Modal } from '../components/Modal';
 import { PageLoading } from '../components/Loading';
@@ -26,10 +26,9 @@ const initialForm: FormData = {
 };
 
 export function Productos() {
-  const { getProductos, createProducto, updateProducto, deleteProducto, isLoading } = useApi();
+  const { productos, isReady, createProducto, updateProducto, deleteProducto, isLoading } = useFirestoreData();
   const { showToast } = useToast();
   
-  const [productos, setProductos] = useState<Producto[]>([]);
   const [filteredProductos, setFilteredProductos] = useState<Producto[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterGenero, setFilterGenero] = useState<'all' | 'hombres' | 'mujeres'>('all');
@@ -39,8 +38,8 @@ export function Productos() {
   const [imageInput, setImageInput] = useState('');
 
   useEffect(() => {
-    loadProductos();
-  }, []);
+    if (!isReady) return;
+  }, [isReady]);
 
   useEffect(() => {
     let filtered = productos;
@@ -61,12 +60,14 @@ export function Productos() {
   }, [searchTerm, filterGenero, productos]);
 
   const loadProductos = async () => {
-    const result = await getProductos();
-    if (result.success && result.data) {
-      setProductos(result.data);
-      setFilteredProductos(result.data);
-    }
+    // Los datos ya se cargan automáticamente desde Firestore
+    setFilteredProductos(productos);
   };
+
+  // Sincronizar productos cuando cambian
+  useEffect(() => {
+    setFilteredProductos(productos);
+  }, [productos]);
 
   const handleOpenModal = (producto?: Producto) => {
     if (producto) {
@@ -106,23 +107,24 @@ export function Productos() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Asegurar que activo esté presente
+    const productoData = { ...formData, activo: true };
+    
     if (editingProducto) {
-      const result = await updateProducto(editingProducto.id, formData as UpdateProductoRequest);
-      if (result.success) {
+      try {
+        await updateProducto(String(editingProducto.id), productoData as UpdateProductoRequest);
         showToast('Producto actualizado correctamente', 'success');
-        loadProductos();
         handleCloseModal();
-      } else {
-        showToast(result.error || 'Error al actualizar', 'error');
+      } catch (err) {
+        showToast('Error al actualizar', 'error');
       }
     } else {
-      const result = await createProducto(formData);
-      if (result.success) {
+      try {
+        await createProducto(productoData as any);
         showToast('Producto creado correctamente', 'success');
-        loadProductos();
         handleCloseModal();
-      } else {
-        showToast(result.error || 'Error al crear', 'error');
+      } catch (err) {
+        showToast('Error al crear', 'error');
       }
     }
   };
@@ -130,12 +132,11 @@ export function Productos() {
   const handleDelete = async (id: number) => {
     if (!confirm('¿Estás seguro de eliminar este producto?')) return;
     
-    const result = await deleteProducto(id);
-    if (result.success) {
+    try {
+      await deleteProducto(String(id));
       showToast('Producto eliminado', 'success');
-      loadProductos();
-    } else {
-      showToast(result.error || 'Error al eliminar', 'error');
+    } catch (err) {
+      showToast('Error al eliminar', 'error');
     }
   };
 
