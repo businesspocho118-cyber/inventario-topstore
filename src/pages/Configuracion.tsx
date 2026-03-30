@@ -6,15 +6,15 @@ import styles from './Configuracion.module.css';
 
 export function Configuracion() {
   const { showToast } = useToast();
-  const { syncWithCatalog, getLastSync, resetData } = useFirestoreData() as any;
+  const { syncWithCatalog, getLastSync, resetData, isReady } = useFirestoreData() as any;
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSync, setLastSync] = useState<string | null>(null);
 
   useEffect(() => {
-    if (getLastSync) {
+    if (isReady && getLastSync) {
       setLastSync(getLastSync());
     }
-  }, [getLastSync]);
+  }, [isReady, getLastSync]);
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -22,8 +22,8 @@ export function Configuracion() {
   };
 
   const handleSync = async () => {
-    if (!syncWithCatalog) {
-      showToast('Sincronización no disponible', 'error');
+    if (!isReady || !syncWithCatalog) {
+      showToast('Esperando conexión con la base de datos...', 'warning');
       return;
     }
     setIsSyncing(true);
