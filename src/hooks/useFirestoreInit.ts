@@ -27,16 +27,24 @@ export function useFirestoreInit() {
 
   const checkAndMigrate = async () => {
     try {
+      console.log('🔄 Conectando a Firestore...');
+      
       // Verificar si Firestore tiene datos
       const productosSnap = await getDocs(query(collection(db, 'productos'), limit(1)));
       const pedidosSnap = await getDocs(query(collection(db, 'pedidos'), limit(1)));
       const clientesSnap = await getDocs(query(collection(db, 'clientes_fidelidad'), limit(1)));
 
+      console.log('📊 Datos en Firestore:', {
+        productos: productosSnap.size,
+        pedidos: pedidosSnap.size,
+        clientes: clientesSnap.size
+      });
+
       const hasFirestoreData = !productosSnap.empty || !pedidosSnap.empty || !clientesSnap.empty;
 
       if (hasFirestoreData) {
         // Ya hay datos en Firestore, no necesitamos migración
-        console.log('Datos encontrados en Firestore, usando sincronización en tiempo real');
+        console.log('✅ Datos encontrados en Firestore, sincronización activa');
         setIsMigrating(false);
         return;
       }
@@ -50,6 +58,7 @@ export function useFirestoreInit() {
 
       if (hasLocalData) {
         // Hay datos locales, necesitamos migrar
+        console.log('📦 Migrando datos de localStorage...');
         setNeedsMigration(true);
         await migrateFromLocalStorage(
           localProductos ? JSON.parse(localProductos) : [],
@@ -58,13 +67,15 @@ export function useFirestoreInit() {
         );
       } else {
         // No hay datos en ningún lado, es la primera vez
-        console.log('Primera vez, sin datos que migrar');
+        console.log('ℹ️ Primera vez, sin datos que migrar. Usá "Sincronizar Ahora" para obtener productos del catálogo.');
       }
 
       setIsMigrating(false);
-    } catch (err) {
-      console.error('Error en migración:', err);
-      setError('Error al inicializar base de datos');
+      console.log('✅ Firestore conectado y listo');
+    } catch (err: any) {
+      console.error('❌ Error conectando a Firestore:', err);
+      setError(err?.message || 'Error al conectar con la base de datos');
+      // Forzar que continue aunque haya error
       setIsMigrating(false);
     }
   };
@@ -122,5 +133,10 @@ export function useFirestoreInit() {
     }
   };
 
-  return { isMigrating, needsMigration, error };
+  // Función para forzar inicialización
+  const forceReady = () => {
+    setIsMigrating(false);
+  };
+
+  return { isMigrating, needsMigration, error, forceReady };
 }
