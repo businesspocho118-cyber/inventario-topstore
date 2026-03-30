@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Plus, Search, Edit2, Trash2, Package, Image as ImageIcon, X, Minus } from 'lucide-react';
-import { useFirestoreData } from '../contexts/FirestoreContext';
+import { useApi } from '../hooks/useApi';
 import { useToast } from '../components/Toast';
 import { Modal } from '../components/Modal';
 import { PageLoading } from '../components/Loading';
@@ -26,9 +26,10 @@ const initialForm: FormData = {
 };
 
 export function Productos() {
-  const { productos, isReady, createProducto, updateProducto, deleteProducto, isLoading } = useFirestoreData();
+  const { getProductos, createProducto, updateProducto, deleteProducto, isLoading } = useApi();
   const { showToast } = useToast();
   
+  const [productos, setProductos] = useState<Producto[]>([]);
   const [filteredProductos, setFilteredProductos] = useState<Producto[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterGenero, setFilterGenero] = useState<'all' | 'hombres' | 'mujeres'>('all');
@@ -38,8 +39,16 @@ export function Productos() {
   const [imageInput, setImageInput] = useState('');
 
   useEffect(() => {
-    if (!isReady) return;
-  }, [isReady]);
+    loadProductos();
+  }, []);
+
+  const loadProductos = async () => {
+    const result = await getProductos();
+    if (result.success && result.data) {
+      setProductos(result.data);
+      setFilteredProductos(result.data);
+    }
+  };
 
   useEffect(() => {
     let filtered = productos;
@@ -58,16 +67,6 @@ export function Productos() {
     
     setFilteredProductos(filtered);
   }, [searchTerm, filterGenero, productos]);
-
-  const loadProductos = async () => {
-    // Los datos ya se cargan automáticamente desde Firestore
-    setFilteredProductos(productos);
-  };
-
-  // Sincronizar productos cuando cambian
-  useEffect(() => {
-    setFilteredProductos(productos);
-  }, [productos]);
 
   const handleOpenModal = (producto?: Producto) => {
     if (producto) {

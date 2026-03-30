@@ -1,21 +1,19 @@
 import { useState, useEffect } from 'react';
 import { Database, Globe, RefreshCw, AlertCircle, CheckCircle, Trash2 } from 'lucide-react';
 import { useToast } from '../components/Toast';
-import { useFirestoreData } from '../contexts/FirestoreContext';
+import { useApi } from '../hooks/useApi';
 import styles from './Configuracion.module.css';
 
 export function Configuracion() {
   const { showToast } = useToast();
-  const { syncWithCatalog, getLastSync, resetData } = useFirestoreData() as any;
+  const api = useApi();
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSync, setLastSync] = useState<string | null>(null);
 
   useEffect(() => {
-    if (getLastSync) {
-      const sync = getLastSync();
-      if (sync) setLastSync(sync);
-    }
-  }, [getLastSync]);
+    const sync = api.getLastSync();
+    if (sync) setLastSync(sync);
+  }, []);
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -23,21 +21,21 @@ export function Configuracion() {
   };
 
   const handleSync = async () => {
-    if (!syncWithCatalog) {
-      showToast('Función de sincronización no disponible. Recargá la página.', 'warning');
-      return;
-    }
     setIsSyncing(true);
     showToast('🔄 Sincronizando con el catálogo...', 'info');
     try {
-      const result = await syncWithCatalog();
-      const { success, removed, errors } = result;
-      if (errors.length > 0) {
-        showToast(`${success} sincronizados, ${removed} quitados. ${errors.length} errores.`, 'warning');
+      const result = await api.syncWithCatalog();
+      if (result.success && result.data) {
+        const { success, removed, errors } = result.data;
+        if (errors.length > 0) {
+          showToast(`${success} sincronizados, ${removed} quitados. ${errors.length} errores.`, 'warning');
+        } else {
+          showToast(`✅ ${success} productos sincronizados, ${removed} quitados`, 'success');
+        }
+        setLastSync(api.getLastSync() || new Date().toISOString());
       } else {
-        showToast(`✅ ${success} productos sincronizados, ${removed} quitados`, 'success');
+        showToast('Error al sincronizar: ' + result.error, 'error');
       }
-      setLastSync(getLastSync?.() || new Date().toISOString());
     } catch (error) {
       showToast('Error al sincronizar con el catálogo', 'error');
     }
@@ -46,7 +44,7 @@ export function Configuracion() {
 
   const handleReset = () => {
     if (confirm('¿Querés resetear los datos a los originales?')) {
-      resetData();
+      api.resetData();
       showToast('Datos reseteados. Recargá la página.', 'success');
       setTimeout(() => window.location.reload(), 1000);
     }
