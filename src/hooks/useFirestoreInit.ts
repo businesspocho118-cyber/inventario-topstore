@@ -26,56 +26,66 @@ export function useFirestoreInit() {
   }, []);
 
   const checkAndMigrate = async () => {
+    // Timeout de 10 segundos - si no responde, continuar de todos modos
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Timeout de conexión')), 10000)
+    );
+
     try {
       console.log('🔄 Conectando a Firestore...');
       
-      // Verificar si Firestore tiene datos
-      const productosSnap = await getDocs(query(collection(db, 'productos'), limit(1)));
-      const pedidosSnap = await getDocs(query(collection(db, 'pedidos'), limit(1)));
-      const clientesSnap = await getDocs(query(collection(db, 'clientes_fidelidad'), limit(1)));
+      // Verificar si Firestore tiene datos (con timeout)
+      const productosSnap = await Promise.race([
+        getDocs(query(collection(db, 'productos'), limit(1))),
+        timeoutPromise
+      ]) as any;
+      
+      const pedidosSnap = await Promise.race([
+        getDocs(query(collection(db, 'pedidos'), limit(1))),
+        timeoutPromise
+      ]) as any;
+      
+      const clientesSnap = await Promise.race([
+        getDocs(query(collection(db, 'clientes_fidelidad'), limit(1))),
+        timeoutPromise
+      ]) as any;
 
       console.log('📊 Datos en Firestore:', {
-        productos: productosSnap.size,
-        pedidos: pedidosSnap.size,
-        clientes: clientesSnap.size
+        productos: productosSnap?.size || 0,
+        pedidos: pedidosSnap?.size || 0,
+        clientes: clientesSnap?.size || 0
       });
 
-      const hasFirestoreData = !productosSnap.empty || !pedidosSnap.empty || !clientesSnap.empty;
+      const hasFirestoreData = (productosSnap?.size > 0) || (pedidosSnap?.size > 0) || (clientesSnap?.size > 0);
 
       if (hasFirestoreData) {
-        // Ya hay datos en Firestore, no necesitamos migración
-        console.log('✅ Datos encontrados en Firestore, sincronización activa');
+        console.log('✅ Datos encontrados en Firestore');
         setIsMigrating(false);
         return;
       }
 
-      // Verificar si hay datos en localStorage
+      // Verificar localStorage
       const localProductos = localStorage.getItem(STORAGE_KEYS.productos);
       const localPedidos = localStorage.getItem(STORAGE_KEYS.pedidos);
       const localClientes = localStorage.getItem(STORAGE_KEYS.clientes_fidelidad);
-
       const hasLocalData = localProductos || localPedidos || localClientes;
 
       if (hasLocalData) {
-        // Hay datos locales, necesitamos migrar
-        console.log('📦 Migrando datos de localStorage...');
-        setNeedsMigration(true);
+        console.log('📦 Migrando de localStorage...');
         await migrateFromLocalStorage(
           localProductos ? JSON.parse(localProductos) : [],
           localPedidos ? JSON.parse(localPedidos) : [],
           localClientes ? JSON.parse(localClientes) : []
         );
       } else {
-        // No hay datos en ningún lado, es la primera vez
-        console.log('ℹ️ Primera vez, sin datos que migrar. Usá "Sincronizar Ahora" para obtener productos del catálogo.');
+        console.log('ℹ️ Primera vez. Usá "Sincronizar Ahora" para obtener productos.');
       }
 
       setIsMigrating(false);
-      console.log('✅ Firestore conectado y listo');
+      console.log('✅ Listo');
     } catch (err: any) {
-      console.error('❌ Error conectando a Firestore:', err);
-      setError(err?.message || 'Error al conectar con la base de datos');
-      // Forzar que continue aunque haya error
+      console.warn('⚠️ Firestore no respondió a tiempo, continuando sin datos:', err?.message);
+      // No bloquear la app - continuar sin datos de Firestore
       setIsMigrating(false);
     }
   };
@@ -133,10 +143,5 @@ export function useFirestoreInit() {
     }
   };
 
-  // Función para forzar inicialización
-  const forceReady = () => {
-    setIsMigrating(false);
-  };
-
-  return { isMigrating, needsMigration, error, forceReady };
+  return { isMigrating, needsMigration, error };
 }

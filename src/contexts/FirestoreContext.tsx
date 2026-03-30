@@ -43,16 +43,8 @@ interface FirestoreContextType {
 const FirestoreContext = createContext<FirestoreContextType | null>(null);
 
 export function FirestoreProvider({ children }: { children: ReactNode }) {
-  const { isMigrating, error, forceReady } = useFirestoreInit();
+  const { isMigrating } = useFirestoreInit();
   const firestore = useFirestore();
-
-  // Si hay error, forzar que esté listo para que pueda sincronizar
-  useEffect(() => {
-    if (error) {
-      console.log('⚠️ Error en Firestore, forzando modo listo:', error);
-      forceReady();
-    }
-  }, [error]);
   
   // Estado local para datos en tiempo real
   const [productos, setProductos] = useState<Producto[]>([]);
