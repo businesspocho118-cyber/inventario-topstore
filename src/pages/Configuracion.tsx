@@ -1,17 +1,19 @@
 import { useState, useEffect } from 'react';
 import { Database, Globe, RefreshCw, AlertCircle, CheckCircle, Trash2 } from 'lucide-react';
 import { useToast } from '../components/Toast';
-import { useApi } from '../hooks/useApi';
+import { useFirestoreData } from '../contexts/FirestoreContext';
 import styles from './Configuracion.module.css';
 
 export function Configuracion() {
   const { showToast } = useToast();
-  const { syncWithCatalog, getLastSync, resetData } = useApi();
+  const { syncWithCatalog, getLastSync, resetData } = useFirestoreData() as any;
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSync, setLastSync] = useState<string | null>(null);
 
   useEffect(() => {
-    setLastSync(getLastSync());
+    if (getLastSync) {
+      setLastSync(getLastSync());
+    }
   }, [getLastSync]);
 
   const formatDate = (dateStr: string) => {
@@ -20,20 +22,20 @@ export function Configuracion() {
   };
 
   const handleSync = async () => {
+    if (!syncWithCatalog) {
+      showToast('Sincronización no disponible', 'error');
+      return;
+    }
     setIsSyncing(true);
     try {
       const result = await syncWithCatalog();
-      if (result.success && result.data) {
-        const { success, removed, errors } = result.data;
-        if (errors.length > 0) {
-          showToast(`${success} sincronizados, ${removed} quitados. ${errors.length} errores.`, 'warning');
-        } else {
-          showToast(`✅ ${success} productos sincronizados, ${removed} quitados`, 'success');
-        }
-        setLastSync(getLastSync());
+      const { success, removed, errors } = result;
+      if (errors.length > 0) {
+        showToast(`${success} sincronizados, ${removed} quitados. ${errors.length} errores.`, 'warning');
       } else {
-        showToast(`Error: ${result.error}`, 'error');
+        showToast(`✅ ${success} productos sincronizados, ${removed} quitados`, 'success');
       }
+      setLastSync(getLastSync?.() || null);
     } catch (error) {
       showToast('Error al sincronizar con el catálogo', 'error');
     }

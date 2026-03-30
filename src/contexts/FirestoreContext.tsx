@@ -31,6 +31,11 @@ interface FirestoreContextType {
   // Stats
   getStats: () => Promise<DashboardStats>;
   
+  // Catálogo
+  syncWithCatalog: () => Promise<{ success: number; removed: number; errors: string[] }>;
+  getLastSync: () => string | null;
+  resetData: () => void;
+  
   // Loading
   isLoading: boolean;
 }
@@ -92,6 +97,10 @@ export function FirestoreProvider({ children }: { children: ReactNode }) {
     updateCliente: firestore.updateCliente,
     deleteCliente: firestore.deleteCliente,
     getStats: firestore.getStats,
+    // Catálogo
+    syncWithCatalog: firestore.syncWithCatalog,
+    getLastSync: firestore.getLastSync,
+    resetData: firestore.resetData,
     isLoading: firestore.isLoading
   };
 

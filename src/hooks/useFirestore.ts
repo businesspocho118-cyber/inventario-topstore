@@ -313,6 +313,156 @@ export function useFirestore() {
     };
   }, []);
 
+  // ================== CATÁLOGO ==================
+  
+  const CATALOG_URL = 'https://topstore-catalogo.businesspocho118.workers.dev';
+
+  const syncWithCatalog = useCallback(async (): Promise<{ success: number; removed: number; errors: string[] }> => {
+    setIsLoading(true);
+    const errors: string[] = [];
+    let success = 0;
+    let removed = 0;
+
+    try {
+      const response = await fetch(CATALOG_URL);
+      const html = await response.text();
+      
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+      const productCards = doc.querySelectorAll('.product-card');
+      
+      const catalogProductIds: string[] = [];
+      
+      // Obtener productos actuales de Firestore
+      const currentSnapshot = await getDocs(collection(db, COLLECTIONS.PRODUCTOS));
+      const currentProductos = new Map();
+      currentSnapshot.docs.forEach((d) => {
+        const data = d.data();
+        currentProductos.set(data.product_id, { docId: d.id, ...data });
+      });
+
+      for (let i = 0; i < productCards.length; i++) {
+        const card = productCards[i];
+        try {
+          const productId = card.getAttribute('data-product-id') || '';
+          catalogProductIds.push(productId);
+          
+          const name = card.getAttribute('data-name') || '';
+          const price = card.getAttribute('data-price') || '';
+          const colors = card.getAttribute('data-colors') || '';
+          const gender = card.getAttribute('data-gender') || '';
+          
+          const galleryAttr = card.getAttribute('data-gallery') || '[]';
+          const gallery = JSON.parse(galleryAttr.replace(/&quot;/g, '"'));
+          const imagePaths = gallery.map((img: any) => {
+            const src = img.src || '';
+            if (src && !src.startsWith('http')) {
+              return `${CATALOG_URL}/${src}`;
+            }
+            return src;
+          });
+          
+          const colorList = colors.split(', ').map((c: string) => c.trim()).filter((c: string) => c);
+          const validGender = gender === 'mujeres' ? 'mujeres' : 'hombres';
+          
+          const existing = currentProductos.get(productId);
+          
+          if (existing) {
+            // Producto existente - actualizar
+            const newStockPorColor: Record<string, number> = {};
+            const existingStock = existing.stock_por_color || {};
+            
+            colorList.forEach((color: string) => {
+              newStockPorColor[color] = existingStock[color] !== undefined ? existingStock[color] : 0;
+            });
+            
+            const totalStock = Object.values(newStockPorColor).reduce((a, b) => a + b, 0);
+            
+            await updateDoc(doc(db, COLLECTIONS.PRODUCTOS, existing.docId), {
+              nombre: name,
+              precio: price,
+              colores: colors,
+              stock_por_color: newStockPorColor,
+              stock: totalStock,
+              genero: validGender,
+              image_paths: imagePaths,
+              activo: true,
+              updated_at: new Date().toISOString()
+            });
+            
+            currentProductos.delete(productId);
+          } else {
+            // Producto nuevo
+            const newStockPorColor: Record<string, number> = {};
+            colorList.forEach((color: string) => {
+              newStockPorColor[color] = 0;
+            });
+            
+            const totalStock = Object.values(newStockPorColor).reduce((a, b) => a + b, 0);
+            
+            // Obtener el mayor ID actual
+            const maxId = currentSnapshot.docs.reduce((max, d) => {
+              const docId = d.data().id || 0;
+              return docId > max ? docId : max;
+            }, 0);
+            
+            await addDoc(collection(db, COLLECTIONS.PRODUCTOS), {
+              product_id: productId,
+              nombre: name,
+              descripcion: '',
+              precio: price,
+              colores: colors,
+              stock_por_color: newStockPorColor,
+              genero: validGender,
+              categoria: '',
+              image_paths: imagePaths,
+              stock: totalStock,
+              activo: true,
+              id: maxId + 1,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            });
+          }
+          success++;
+        } catch (e) {
+          errors.push(`Error ${i}: ${e}`);
+        }
+      }
+      
+      // Desactivar productos que ya no están en el catálogo
+      for (const [, product] of currentProductos) {
+        await updateDoc(doc(db, COLLECTIONS.PRODUCTOS, product.docId), {
+          activo: false,
+          updated_at: new Date().toISOString()
+        });
+        removed++;
+      }
+      
+      // Guardar última sincronización
+      localStorage.setItem('topstore_last_sync', new Date().toISOString());
+      
+    } catch (error) {
+      errors.push(`Error conectando al catálogo: ${error}`);
+    }
+    
+    setIsLoading(false);
+    return { success, removed, errors };
+  }, []);
+
+  const getLastSync = useCallback((): string | null => {
+    return localStorage.getItem('topstore_last_sync');
+  }, []);
+
+  const resetData = useCallback(() => {
+    // Limpiar localStorage
+    localStorage.removeItem('topstore_productos');
+    localStorage.removeItem('topstore_pedidos');
+    localStorage.removeItem('topstore_clientes_fidelidad');
+    localStorage.removeItem('topstore_last_sync');
+    // Recargar la página
+    window.location.reload();
+  }, []);
+
   return {
     isLoading,
     // Productos
