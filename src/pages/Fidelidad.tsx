@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { Star, Users, Gift, Search, Plus, Trash2, Phone, Pencil } from 'lucide-react';
-import { useFirestoreData } from '../contexts/FirestoreContext';
 import { useToast } from '../components/Toast';
 import { Modal } from '../components/Modal';
 import { PageLoading } from '../components/Loading';
@@ -8,14 +7,44 @@ import styles from './Fidelidad.module.css';
 
 const COMPRAS_PARA_DESCUENTO = 6;
 const PORCENTAJE_DESCUENTO = 20;
+const STORAGE_KEY = 'topstore_clientes_fidelidad';
 
 const getComprasQueCuentan = (compras: number) => Math.max(0, compras - 1);
 const tieneDescuento = (compras: number) => getComprasQueCuentan(compras) >= COMPRAS_PARA_DESCUENTO;
 
+interface Cliente {
+  id: number;
+  nombre: string;
+  telefono: string;
+  direccion?: string;
+  referencias?: string;
+  ultimo_metodo_pago?: 'efectivo' | 'transferencia';
+  compras: number;
+  created_at: string;
+}
+
 export function Fidelidad() {
-  const { clientes, isReady, updateCliente, deleteCliente } = useFirestoreData();
   const { showToast } = useToast();
+  const [clientes, setClientes] = useState<Cliente[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    loadClientes();
+  }, []);
+
+  const loadClientes = () => {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      setClientes(JSON.parse(stored));
+    }
+    setIsLoading(false);
+  };
+
+  const saveClientes = (newClientes: Cliente[]) => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(newClientes));
+    setClientes(newClientes);
+  };
   
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [clienteEditando, setClienteEditando] = useState<any>(null);

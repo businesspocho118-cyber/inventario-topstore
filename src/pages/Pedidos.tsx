@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { ShoppingCart, Search, Plus, X, Check, Truck, Package, Clock, Trash2, Users } from 'lucide-react';
-import { useFirestoreData } from '../contexts/FirestoreContext';
+import { useApi } from '../hooks/useApi';
 import { useToast } from '../components/Toast';
 import { Modal } from '../components/Modal';
 import { PageLoading } from '../components/Loading';
@@ -20,7 +20,7 @@ const estadoIcons: Record<string, typeof Clock> = {
   pendiente: Clock,
   pagado: Check,
   enviado: Truck,
-  entregado: Package
+  entretenimiento: Package
 };
 
 const estadoColors: Record<string, string> = {
@@ -40,12 +40,15 @@ interface PedidoItem {
 }
 
 export function Pedidos() {
-  const { pedidos, productos, clientes, isReady, getProductos, createPedido, updatePedidoEstado, deletePedido } = useFirestoreData();
+  const { getPedidos, getProductos, createPedido, updatePedidoEstado, deletePedido, isLoading } = useApi();
   const { showToast } = useToast();
   
+  const [pedidos, setPedidos] = useState<Pedido[]>([]);
+  const [productos, setProductos] = useState<Producto[]>([]);
   const [filteredPedidos, setFilteredPedidos] = useState<Pedido[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterEstado, setFilterEstado] = useState<string>('all');
+  const [clientes, setClientes] = useState<ClienteFidelidad[]>([]);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [nuevoPedido, setNuevoPedido] = useState<{
@@ -72,19 +75,38 @@ export function Pedidos() {
   const [tipoCliente, setTipoCliente] = useState<'nuevo' | 'existente'>('nuevo');
   const [clienteSeleccionado, setClienteSeleccionado] = useState<number | ''>('');
 
-  // Sync pedidos when they change
+  // Load data on mount
+  useEffect(() => {
+    loadData();
+  }, []);
+
   useEffect(() => {
     setFilteredPedidos(pedidos);
   }, [pedidos]);
 
   const loadData = async () => {
-    // Datos se cargan automáticamente desde Firestore
-    // Solo necesitamos cargar clientes de Firestore
-    await getProductos();
+    const [pedidosResult, productosResult] = await Promise.all([
+      getPedidos(),
+      getProductos()
+    ]);
+    
+    if (pedidosResult.success && pedidosResult.data) {
+      setPedidos(pedidosResult.data);
+      setFilteredPedidos(pedidosResult.data);
+    }
+    
+    if (productosResult.success && productosResult.data) {
+      setProductos(productosResult.data);
+    }
+
+    // Cargar clientes de localStorage
+    const stored = localStorage.getItem('topstore_clientes_fidelidad');
+    if (stored) {
+      setClientes(JSON.parse(stored));
+    }
   };
 
   const handleOpenModal = () => {
-    // Los clientes ya se cargan desde Firestore
     setNuevoPedido({
       cliente_nombre: '',
       cliente_telefono: '',
@@ -229,7 +251,6 @@ export function Pedidos() {
         cliente_referencias: nuevoPedido.cliente_referencias,
         metodo_pago: nuevoPedido.metodo_pago,
         notas: nuevoPedido.notas,
-        total: nuevoPedido.items.reduce((sum, item) => sum + (item.cantidad * item.precio_unitario), 0),
         items: nuevoPedido.items.map(item => ({
           producto_id: item.producto_id,
           cantidad: item.cantidad,
@@ -282,7 +303,7 @@ export function Pedidos() {
     });
   };
 
-  if (!isReady) {
+  if (isLoading) {
     return <PageLoading />;
   }
 
