@@ -1,12 +1,16 @@
 import { useState, useEffect } from 'react';
-import { Star, Users, Gift, Search, Plus, Trash2, Phone, PhoneCall } from 'lucide-react';
+import { Star, Users, Gift, Search, Plus, Trash2, Phone, PhoneCall, Pencil, X } from 'lucide-react';
 import { useToast } from '../components/Toast';
+import { Modal } from '../components/Modal';
 import styles from './Fidelidad.module.css';
 
 interface Cliente {
   id: number;
   nombre: string;
   telefono: string;
+  direccion?: string;
+  referencias?: string;
+  ultimo_metodo_pago?: 'efectivo' | 'transferencia';
   compras: number;
   created_at: string;
 }
@@ -26,6 +30,10 @@ export function Fidelidad() {
   const { showToast } = useToast();
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // Edit modal state
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [clienteEditando, setClienteEditando] = useState<Cliente | null>(null);
 
   useEffect(() => {
     loadClientes();
@@ -78,6 +86,28 @@ export function Fidelidad() {
     if (!confirm('¿Eliminar este cliente de fidelidad?')) return;
     saveClientes(clientes.filter(c => c.id !== clienteId));
     showToast('Cliente eliminado', 'success');
+  };
+
+  const handleEditarCliente = (cliente: Cliente) => {
+    setClienteEditando({ ...cliente });
+    setIsEditModalOpen(true);
+  };
+
+  const handleGuardarEdicion = () => {
+    if (!clienteEditando) return;
+    
+    if (!clienteEditando.nombre.trim() || !clienteEditando.telefono.trim()) {
+      showToast('Nombre y teléfono son requeridos', 'warning');
+      return;
+    }
+
+    const updated = clientes.map(c => 
+      c.id === clienteEditando.id ? clienteEditando : c
+    );
+    saveClientes(updated);
+    setIsEditModalOpen(false);
+    setClienteEditando(null);
+    showToast('Cliente actualizado', 'success');
   };
 
   const getProgreso = (compras: number) => {
@@ -161,7 +191,29 @@ export function Fidelidad() {
                   <span className={styles.clientePhone}>
                     <Phone size={12} /> {cliente.telefono}
                   </span>
+                  {cliente.direccion && (
+                    <span className={styles.clienteDireccion}>
+                      📍 {cliente.direccion}
+                    </span>
+                  )}
+                  {cliente.referencias && (
+                    <span className={styles.clienteReferencias}>
+                      {cliente.referencias}
+                    </span>
+                  )}
+                  {cliente.ultimo_metodo_pago && (
+                    <span className={styles.clienteMetodo}>
+                      {cliente.ultimo_metodo_pago === 'efectivo' ? '💵' : '📱'} {cliente.ultimo_metodo_pago === 'efectivo' ? 'Efectivo' : 'Transferencia'}
+                    </span>
+                  )}
                 </div>
+                <button 
+                  className={styles.editBtn}
+                  onClick={() => handleEditarCliente(cliente)}
+                  title="Editar cliente"
+                >
+                  <Pencil size={14} />
+                </button>
                 <button 
                   className={styles.deleteBtn}
                   onClick={() => handleEliminarCliente(cliente.id)}
@@ -224,6 +276,104 @@ export function Fidelidad() {
       <div className={styles.infoBox}>
         <p>Los clientes se agregan automáticamente cuando creás una venta con cliente nuevo.</p>
       </div>
+
+      {/* Modal Editar Cliente */}
+      <Modal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        title="Editar Cliente"
+        size="md"
+        footer={
+          <>
+            <button className="btn btn-secondary" onClick={() => setIsEditModalOpen(false)}>
+              Cancelar
+            </button>
+            <button className="btn btn-primary" onClick={handleGuardarEdicion}>
+              Guardar Cambios
+            </button>
+          </>
+        }
+      >
+        {clienteEditando && (
+          <div className={styles.form}>
+            <div className={styles.formGroup}>
+              <label>Nombre *</label>
+              <input
+                type="text"
+                value={clienteEditando.nombre}
+                onChange={(e) => setClienteEditando({ ...clienteEditando, nombre: e.target.value })}
+                className="input"
+                placeholder="Nombre del cliente"
+              />
+            </div>
+
+            <div className={styles.formGroup}>
+              <label>Teléfono *</label>
+              <input
+                type="tel"
+                value={clienteEditando.telefono}
+                onChange={(e) => setClienteEditando({ ...clienteEditando, telefono: e.target.value.replace(/\D/g, '') })}
+                className="input"
+                placeholder="Teléfono"
+                maxLength={10}
+              />
+            </div>
+
+            <div className={styles.formGroup}>
+              <label>Dirección</label>
+              <input
+                type="text"
+                value={clienteEditando.direccion || ''}
+                onChange={(e) => setClienteEditando({ ...clienteEditando, direccion: e.target.value })}
+                className="input"
+                placeholder="Dirección"
+              />
+            </div>
+
+            <div className={styles.formGroup}>
+              <label>Referencias</label>
+              <input
+                type="text"
+                value={clienteEditando.referencias || ''}
+                onChange={(e) => setClienteEditando({ ...clienteEditando, referencias: e.target.value })}
+                className="input"
+                placeholder="Referencias de dirección"
+              />
+            </div>
+
+            <div className={styles.formGroup}>
+              <label>Método de pago preferido</label>
+              <div className={styles.tipoClienteRow}>
+                <button
+                  type="button"
+                  className={`${styles.tipoBtn} ${clienteEditando.ultimo_metodo_pago === 'efectivo' ? styles.tipoBtnActive : ''}`}
+                  onClick={() => setClienteEditando({ ...clienteEditando, ultimo_metodo_pago: 'efectivo' })}
+                >
+                  💵 Efectivo
+                </button>
+                <button
+                  type="button"
+                  className={`${styles.tipoBtn} ${clienteEditando.ultimo_metodo_pago === 'transferencia' ? styles.tipoBtnActive : ''}`}
+                  onClick={() => setClienteEditando({ ...clienteEditando, ultimo_metodo_pago: 'transferencia' })}
+                >
+                  📱 Transferencia
+                </button>
+              </div>
+            </div>
+
+            <div className={styles.formGroup}>
+              <label>Compras realizadas</label>
+              <input
+                type="number"
+                value={clienteEditando.compras}
+                onChange={(e) => setClienteEditando({ ...clienteEditando, compras: parseInt(e.target.value) || 0 })}
+                className="input"
+                min="0"
+              />
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

@@ -372,6 +372,10 @@ export function useApi() {
       fecha: new Date().toISOString(),
       cliente_nombre: req.cliente_nombre,
       cliente_telefono: req.cliente_telefono,
+      cliente_direccion: req.cliente_direccion,
+      cliente_barrio: req.cliente_barrio,
+      cliente_referencias: req.cliente_referencias,
+      metodo_pago: req.metodo_pago,
       notas: req.notas || '',
       estado: 'pendiente',
       total
@@ -390,14 +394,20 @@ export function useApi() {
     const clienteIndex = clientes.findIndex((c: any) => c.telefono === req.cliente_telefono);
     
     if (clienteIndex !== -1) {
-      // El cliente existe, aumentar compras
+      // El cliente existe, aumentar compras y actualizar dirección y método de pago
       clientes[clienteIndex].compras += 1;
+      clientes[clienteIndex].direccion = `${req.cliente_direccion}, ${req.cliente_barrio}`;
+      clientes[clienteIndex].referencias = req.cliente_referencias;
+      clientes[clienteIndex].ultimo_metodo_pago = req.metodo_pago;
     } else {
       // Cliente nuevo, agregarlo a fidelidad con 1 compra (la primera)
       clientes.push({
         id: Date.now(),
         nombre: req.cliente_nombre,
         telefono: req.cliente_telefono,
+        direccion: `${req.cliente_direccion}, ${req.cliente_barrio}`,
+        referencias: req.cliente_referencias,
+        ultimo_metodo_pago: req.metodo_pago,
         compras: 1,
         created_at: new Date().toISOString()
       });
