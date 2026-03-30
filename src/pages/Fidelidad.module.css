@@ -197,6 +197,25 @@
   color: white;
 }
 
+.editBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.editBtn:hover {
+  background: #3b82f6;
+  color: white;
+}
+
 /* Progress */
 .progressSection {
   margin-bottom: 16px;
