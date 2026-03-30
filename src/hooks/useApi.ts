@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import type { 
   ApiResponse, 
   Producto, 
@@ -8,6 +8,7 @@ import type {
   UpdateProductoRequest,
   CreatePedidoRequest 
 } from '../types';
+import { supabase, TABLES } from '../supabase/config';
 
 // Datos por defecto
 const defaultData = {
@@ -22,47 +23,324 @@ let nextProductoId = 1;
 let nextPedidoId = 1;
 let dataLoaded = false;
 
+// Estado de conexión a Supabase
+let supabaseConnected = false;
+
+// Callbacks para notificar cambios desde Supabase
+type ChangeCallback = () => void;
+const productoCallbacks: ChangeCallback[] = [];
+const pedidoCallbacks: ChangeCallback[] = [];
+
+// Función para recargar datos desde Supabase
+const reloadFromSupabase = async () => {
+  console.log('Cambio detectado en Supabase, recargando datos...');
+  const data = await loadFromSupabase();
+  if (data.productos.length > 0 || data.pedidos.length > 0) {
+    productosDb = data.productos;
+    pedidosDb = data.pedidos;
+    nextProductoId = (productosDb.length > 0 ? Math.max(...productosDb.map(p => p.id)) : 0) + 1;
+    nextPedidoId = (pedidosDb.length > 0 ? Math.max(...pedidosDb.map(p => p.id)) : 0) + 1;
+    
+    // Notificar callbacks
+    productoCallbacks.forEach(cb => cb());
+    pedidoCallbacks.forEach(cb => cb());
+    console.log('Datos recargados desde Supabase');
+  }
+};
+
+// Configurar suscripciones a Supabase (solo una vez)
+let subscriptionsSetup = false;
+
+const setupSupabaseSubscriptions = () => {
+  if (subscriptionsSetup || !supabaseConnected) return;
+  
+  try {
+    // Suscripción a productos
+    supabase
+      .channel('productos-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: TABLES.PRODUCTOS },
+        () => {
+          console.log('Cambio en productos detectado!');
+          reloadFromSupabase();
+        }
+      )
+      .subscribe();
+
+    // Suscripción a pedidos
+    supabase
+      .channel('pedidos-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: TABLES.PEDIDOS },
+        () => {
+          console.log('Cambio en pedidos detectado!');
+          reloadFromSupabase();
+        }
+      )
+      .subscribe();
+
+    subscriptionsSetup = true;
+    console.log('Suscripciones a Supabase configuradas');
+  } catch (e) {
+    console.error('Error configurando suscripciones:', e);
+  }
+};
+
 // Storage keys
 const STORAGE_KEYS = {
   productos: 'topstore_productos',
   pedidos: 'topstore_pedidos',
+  clientes: 'topstore_clientes_fidelidad',
   lastSync: 'topstore_last_sync'
 };
 
-// Guardar en localStorage
-const saveToStorage = () => {
+// Verificar conexión a Supabase
+const checkSupabaseConnection = async (): Promise<boolean> => {
+  try {
+    const { error } = await supabase.from(TABLES.PRODUCTOS).select('id').limit(1);
+    supabaseConnected = !error;
+    console.log('Supabase connection:', supabaseConnected ? 'OK' : 'FAILED');
+    return supabaseConnected;
+  } catch (e) {
+    supabaseConnected = false;
+    return false;
+  }
+};
+
+// Sincronizar producto a Supabase
+const syncProductoToSupabase = async (producto: Producto): Promise<void> => {
+  if (!supabaseConnected) return;
+  
+  try {
+    const { error } = await supabase
+      .from(TABLES.PRODUCTOS)
+      .upsert({
+        id: producto.id,
+        product_id: producto.product_id,
+        nombre: producto.nombre,
+        descripcion: producto.descripcion,
+        precio: producto.precio,
+        colores: producto.colores,
+        stock_por_color: producto.stock_por_color,
+        genero: producto.genero,
+        categoria: producto.categoria,
+        image_paths: producto.image_paths,
+        stock: producto.stock,
+        activo: producto.activo,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'id' });
+
+    if (error) {
+      console.error('Error syncing producto to Supabase:', error);
+    }
+  } catch (e) {
+    console.error('Exception syncing producto:', e);
+  }
+};
+
+// Sincronizar pedido a Supabase
+const syncPedidoToSupabase = async (pedido: Pedido): Promise<void> => {
+  if (!supabaseConnected) return;
+  
+  try {
+    const { error } = await supabase
+      .from(TABLES.PEDIDOS)
+      .upsert({
+        id: pedido.id,
+        fecha: pedido.fecha,
+        cliente_nombre: pedido.cliente_nombre,
+        cliente_telefono: pedido.cliente_telefono,
+        cliente_direccion: pedido.cliente_direccion,
+        cliente_barrio: pedido.cliente_barrio,
+        cliente_referencias: pedido.cliente_referencias,
+        metodo_pago: pedido.metodo_pago,
+        estado: pedido.estado,
+        total: pedido.total,
+        notas: pedido.notas
+      }, { onConflict: 'id' });
+
+    if (error) {
+      console.error('Error syncing pedido to Supabase:', error);
+    }
+  } catch (e) {
+    console.error('Exception syncing pedido:', e);
+  }
+};
+
+// Eliminar pedido de Supabase
+const deletePedidoFromSupabase = async (pedidoId: number): Promise<void> => {
+  if (!supabaseConnected) return;
+  
+  try {
+    const { error } = await supabase
+      .from(TABLES.PEDIDOS)
+      .delete()
+      .eq('id', pedidoId);
+
+    if (error) {
+      console.error('Error deleting pedido from Supabase:', error);
+    }
+  } catch (e) {
+    console.error('Exception deleting pedido:', e);
+  }
+};
+
+// Cargar datos desde Supabase
+const loadFromSupabase = async (): Promise<{ productos: Producto[], pedidos: Pedido[] }> => {
+  if (!supabaseConnected) {
+    return { productos: [], pedidos: [] };
+  }
+
+  try {
+    // Cargar productos
+    const { data: productosData, error: productosError } = await supabase
+      .from(TABLES.PRODUCTOS)
+      .select('*')
+      .eq('activo', true)
+      .order('id');
+
+    // Cargar pedidos
+    const { data: pedidosData, error: pedidosError } = await supabase
+      .from(TABLES.PEDIDOS)
+      .select('*')
+      .order('id');
+
+    if (productosError || pedidosError) {
+      console.error('Error loading from Supabase:', productosError || pedidosError);
+      return { productos: [], pedidos: [] };
+    }
+
+    // Guardar en localStorage como backup
+    if (productosData) {
+      localStorage.setItem(STORAGE_KEYS.productos, JSON.stringify(productosData));
+    }
+    if (pedidosData) {
+      localStorage.setItem(STORAGE_KEYS.pedidos, JSON.stringify(pedidosData));
+    }
+
+    return { 
+      productos: productosData || [], 
+      pedidos: pedidosData || [] 
+    };
+  } catch (e) {
+    console.error('Exception loading from Supabase:', e);
+    return { productos: [], pedidos: [] };
+  }
+};
+
+// Guardar en localStorage y sincronizar a Supabase
+const saveToStorage = async () => {
   try {
     localStorage.setItem(STORAGE_KEYS.productos, JSON.stringify(productosDb));
     localStorage.setItem(STORAGE_KEYS.pedidos, JSON.stringify(pedidosDb));
     localStorage.setItem(STORAGE_KEYS.lastSync, new Date().toISOString());
+    
+    // Sincronizar a Supabase si está conectado
+    if (supabaseConnected) {
+      for (const producto of productosDb) {
+        await syncProductoToSupabase(producto);
+      }
+      console.log('Productos sincronizados a Supabase');
+    }
   } catch (e) {
     console.error('Error guardando en localStorage:', e);
   }
 };
 
-// Cargar datos desde JSON (con soporte localStorage)
+// Versión async de saveToStorage para usar después de crear pedidos
+const saveToStorageAsync = async () => {
+  try {
+    localStorage.setItem(STORAGE_KEYS.productos, JSON.stringify(productosDb));
+    localStorage.setItem(STORAGE_KEYS.pedidos, JSON.stringify(pedidosDb));
+    localStorage.setItem(STORAGE_KEYS.lastSync, new Date().toISOString());
+    
+    // Sincronizar a Supabase si está conectado
+    if (supabaseConnected) {
+      for (const producto of productosDb) {
+        await syncProductoToSupabase(producto);
+      }
+      for (const pedido of pedidosDb) {
+        await syncPedidoToSupabase(pedido);
+      }
+      console.log('Datos sincronizados a Supabase');
+    }
+  } catch (e) {
+    console.error('Error guardando en localStorage:', e);
+  }
+};
+
+// Cargar datos desde JSON (con soporte localStorage y Supabase)
 const loadData = async () => {
   if (dataLoaded) return;
   
   try {
-    // Primero intentar cargar desde localStorage
-    const storedProductos = localStorage.getItem(STORAGE_KEYS.productos);
-    const storedPedidos = localStorage.getItem(STORAGE_KEYS.pedidos);
+    // Primero verificar conexión a Supabase
+    await checkSupabaseConnection();
     
-    if (storedProductos && storedPedidos) {
-      // Cargar desde localStorage
-      productosDb = JSON.parse(storedProductos);
-      pedidosDb = JSON.parse(storedPedidos);
-      console.log('Datos cargados desde localStorage:', productosDb.length, 'productos');
+    // Configurar suscripciones en tiempo real
+    setupSupabaseSubscriptions();
+    
+    if (supabaseConnected) {
+      // Intentar cargar desde Supabase
+      const supabaseData = await loadFromSupabase();
+      
+      if (supabaseData.productos.length > 0 || supabaseData.pedidos.length > 0) {
+        productosDb = supabaseData.productos;
+        pedidosDb = supabaseData.pedidos;
+        console.log('Datos cargados desde Supabase:', productosDb.length, 'productos,', pedidosDb.length, 'pedidos');
+      } else {
+        // Si Supabase está conectado pero no hay datos, cargar desde localStorage
+        const storedProductos = localStorage.getItem(STORAGE_KEYS.productos);
+        const storedPedidos = localStorage.getItem(STORAGE_KEYS.pedidos);
+        
+        if (storedProductos && storedPedidos) {
+          productosDb = JSON.parse(storedProductos);
+          pedidosDb = JSON.parse(storedPedidos);
+          console.log('Datos cargados desde localStorage:', productosDb.length, 'productos');
+          
+          // Sincronizar a Supabase
+          for (const producto of productosDb) {
+            await syncProductoToSupabase(producto);
+          }
+          for (const pedido of pedidosDb) {
+            await syncPedidoToSupabase(pedido);
+          }
+          console.log('Datos sincronizados a Supabase');
+        } else {
+          // Cargar desde JSON original
+          const response = await fetch('/data/productos.json');
+          const data = await response.json() as { productos: Producto[]; pedidos: Pedido[] };
+          productosDb = data.productos || [];
+          pedidosDb = data.pedidos || [];
+          saveToStorage();
+          console.log('Datos cargados desde JSON:', productosDb.length, 'productos');
+          
+          // Sincronizar a Supabase
+          for (const producto of productosDb) {
+            await syncProductoToSupabase(producto);
+          }
+        }
+      }
     } else {
-      // Cargar desde JSON original
-      const response = await fetch('/data/productos.json');
-      const data = await response.json() as { productos: Producto[]; pedidos: Pedido[] };
-      productosDb = data.productos || [];
-      pedidosDb = data.pedidos || [];
-      // Guardar en localStorage para próxima vez
-      saveToStorage();
-      console.log('Datos cargados desde JSON:', productosDb.length, 'productos');
+      // Sin conexión a Supabase, usar localStorage
+      const storedProductos = localStorage.getItem(STORAGE_KEYS.productos);
+      const storedPedidos = localStorage.getItem(STORAGE_KEYS.pedidos);
+      
+      if (storedProductos && storedPedidos) {
+        productosDb = JSON.parse(storedProductos);
+        pedidosDb = JSON.parse(storedPedidos);
+        console.log('Datos cargados desde localStorage (Sin Supabase):', productosDb.length, 'productos');
+      } else {
+        // Cargar desde JSON original
+        const response = await fetch('/data/productos.json');
+        const data = await response.json() as { productos: Producto[]; pedidos: Pedido[] };
+        productosDb = data.productos || [];
+        pedidosDb = data.pedidos || [];
+        saveToStorage();
+        console.log('Datos cargados desde JSON:', productosDb.length, 'productos');
+      }
     }
     
     nextProductoId = (productosDb.length > 0 ? Math.max(...productosDb.map(p => p.id)) : 0) + 1;
@@ -287,6 +565,9 @@ export function useApi() {
     productosDb.push(nuevo);
     await saveToStorage();
     
+    // Sincronizar nuevo producto a Supabase
+    await syncProductoToSupabase(nuevo);
+    
     setIsLoading(false);
     return { success: true, data: nuevo };
   }, []);
@@ -310,6 +591,9 @@ export function useApi() {
     
     await saveToStorage();
     
+    // Sincronizar producto actualizado a Supabase
+    await syncProductoToSupabase(productosDb[index]);
+    
     setIsLoading(false);
     return { success: true, data: productosDb[index] };
   }, []);
@@ -329,6 +613,9 @@ export function useApi() {
     productosDb[index].updated_at = new Date().toISOString();
     
     await saveToStorage();
+    
+    // Sincronizar producto desactivado a Supabase
+    await syncProductoToSupabase(productosDb[index]);
     
     setIsLoading(false);
     return { success: true };
@@ -432,7 +719,7 @@ export function useApi() {
       }
     });
     
-    await saveToStorage();
+    await saveToStorageAsync();
     
     setIsLoading(false);
     return { success: true, data: nuevo };
@@ -457,7 +744,7 @@ export function useApi() {
     
     pedidosDb[index].estado = estado as Pedido['estado'];
     
-    await saveToStorage();
+    await saveToStorageAsync();
     
     setIsLoading(false);
     return { success: true, data: pedidosDb[index] };
@@ -475,6 +762,9 @@ export function useApi() {
       return { success: false, error: 'Pedido no encontrado' };
     }
     
+    // Guardar ID antes de eliminar para Supabase
+    const deletedId = pedidosDb[index].id;
+    
     // Eliminar el pedido
     pedidosDb.splice(index, 1);
     
@@ -483,7 +773,9 @@ export function useApi() {
       pedido.id = idx + 1;
     });
     
-    await saveToStorage();
+    // Eliminar de Supabase
+    await deletePedidoFromSupabase(deletedId);
+    await saveToStorageAsync();
     
     setIsLoading(false);
     return { success: true };
@@ -494,6 +786,15 @@ export function useApi() {
     setIsLoading(true);
     await loadData();
     const result = await syncFromCatalog();
+    
+    // Sincronizar todos los productos a Supabase después del sync
+    if (supabaseConnected) {
+      for (const producto of productosDb) {
+        await syncProductoToSupabase(producto);
+      }
+      console.log('Catálogo sincronizado a Supabase');
+    }
+    
     setIsLoading(false);
     
     if (result.errors.length > 0 && result.success === 0) {
@@ -512,6 +813,39 @@ export function useApi() {
     resetToOriginal();
   }, []);
 
+  // Suscribirse a cambios en productos (desde Supabase)
+  const subscribeToProductoChanges = useCallback((callback: ChangeCallback) => {
+    productoCallbacks.push(callback);
+    return () => {
+      const index = productoCallbacks.indexOf(callback);
+      if (index > -1) {
+        productoCallbacks.splice(index, 1);
+      }
+    };
+  }, []);
+
+  // Suscribirse a cambios en pedidos (desde Supabase)
+  const subscribeToPedidoChanges = useCallback((callback: ChangeCallback) => {
+    pedidoCallbacks.push(callback);
+    return () => {
+      const index = pedidoCallbacks.indexOf(callback);
+      if (index > -1) {
+        pedidoCallbacks.splice(index, 1);
+      }
+    };
+  }, []);
+
+  // Forzar recarga de datos (útil para actualizar la vista manualmente)
+  const refreshData = useCallback(async () => {
+    dataLoaded = false;
+    await loadData();
+  }, []);
+
+  // Verificar estado de conexión a Supabase
+  const isSupabaseConnected = useCallback(() => {
+    return supabaseConnected;
+  }, []);
+
   return {
     isLoading,
     getStats,
@@ -527,6 +861,10 @@ export function useApi() {
     deletePedido,
     syncWithCatalog,
     getLastSync,
-    resetData
+    resetData,
+    subscribeToProductoChanges,
+    subscribeToPedidoChanges,
+    refreshData,
+    isSupabaseConnected
   };
 }
