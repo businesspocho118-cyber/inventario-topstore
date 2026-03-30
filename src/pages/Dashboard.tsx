@@ -1,31 +1,30 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Package, ShoppingCart, AlertTriangle, DollarSign, TrendingUp, ArrowRight } from 'lucide-react';
-import { useApi } from '../hooks/useApi';
+import { useFirestoreData } from '../contexts/FirestoreContext';
 import { StatCard } from '../components/StatCard';
 import { PageLoading } from '../components/Loading';
 import type { DashboardStats } from '../types';
 import styles from './Dashboard.module.css';
 
 export function Dashboard() {
-  const { getStats } = useApi();
+  const { getStats, isReady, isLoading: firestoreLoading } = useFirestoreData();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    if (!isReady) return;
     loadStats();
-  }, []);
+  }, [isReady]);
 
   const loadStats = async () => {
     setIsLoading(true);
-    const result = await getStats();
-    if (result.success && result.data) {
-      setStats(result.data);
-    }
+    const data = await getStats();
+    setStats(data);
     setIsLoading(false);
   };
 
-  if (isLoading) {
+  if (!isReady || isLoading) {
     return <PageLoading />;
   }
 

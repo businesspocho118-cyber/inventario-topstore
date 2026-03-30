@@ -1,113 +1,87 @@
 import { useState, useEffect } from 'react';
-import { Star, Users, Gift, Search, Plus, Trash2, Phone, PhoneCall, Pencil, X } from 'lucide-react';
+import { Star, Users, Gift, Search, Plus, Trash2, Phone, Pencil } from 'lucide-react';
+import { useFirestoreData } from '../contexts/FirestoreContext';
 import { useToast } from '../components/Toast';
 import { Modal } from '../components/Modal';
+import { PageLoading } from '../components/Loading';
 import styles from './Fidelidad.module.css';
 
-interface Cliente {
-  id: number;
-  nombre: string;
-  telefono: string;
-  direccion?: string;
-  referencias?: string;
-  ultimo_metodo_pago?: 'efectivo' | 'transferencia';
-  compras: number;
-  created_at: string;
-}
-
-const STORAGE_KEY = 'topstore_clientes_fidelidad';
-const COMPRAS_PARA_DESCUENTO = 6; // 6 compras que cuentan (la primera no cuenta)
-const COMPRAS_TOTALES_PARA_DESCUENTO = 7; // 1 primera + 6 que cuentan = descuento
+const COMPRAS_PARA_DESCUENTO = 6;
 const PORCENTAJE_DESCUENTO = 20;
 
-// Función para calcular compras que cuentan (la primera no cuenta)
 const getComprasQueCuentan = (compras: number) => Math.max(0, compras - 1);
-
-// Función para verificar si tiene descuento disponible
 const tieneDescuento = (compras: number) => getComprasQueCuentan(compras) >= COMPRAS_PARA_DESCUENTO;
 
 export function Fidelidad() {
+  const { clientes, isReady, updateCliente, deleteCliente } = useFirestoreData();
   const { showToast } = useToast();
-  const [clientes, setClientes] = useState<Cliente[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   
-  // Edit modal state
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [clienteEditando, setClienteEditando] = useState<Cliente | null>(null);
+  const [clienteEditando, setClienteEditando] = useState<any>(null);
 
-  useEffect(() => {
-    loadClientes();
-  }, []);
-
-  const loadClientes = () => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      setClientes(JSON.parse(stored));
+  const handleAgregarCompra = async (clienteId: string) => {
+    const cliente = clientes.find(c => c.id === clienteId);
+    if (!cliente) return;
+    
+    const newCompras = cliente.compras + 1;
+    const comprasQueCuentan = getComprasQueCuentan(newCompras);
+    if (comprasQueCuentan === COMPRAS_PARA_DESCUENTO) {
+      showToast(`🎉 ${cliente.nombre} completó ${COMPRAS_PARA_DESCUENTO} compras (desde la 2da)! 20% descuento disponible`, 'success');
+    }
+    
+    try {
+      await updateCliente(clienteId, { compras: newCompras });
+    } catch (err) {
+      showToast('Error al actualizar compras', 'error');
     }
   };
 
-  const saveClientes = (newClientes: Cliente[]) => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(newClientes));
-    setClientes(newClientes);
-  };
-
-  const handleAgregarCompra = (clienteId: number) => {
-    const updated = clientes.map(c => {
-      if (c.id === clienteId) {
-        const newCompras = c.compras + 1;
-        const comprasQueCuentan = getComprasQueCuentan(newCompras);
-        if (comprasQueCuentan === COMPRAS_PARA_DESCUENTO) {
-          showToast(`🎉 ${c.nombre} completó ${COMPRAS_PARA_DESCUENTO} compras (desde la 2da)! 20% descuento disponible`, 'success');
-        }
-        return { ...c, compras: newCompras };
-      }
-      return c;
-    });
-    saveClientes(updated);
-  };
-
-  const handleUsarDescuento = (clienteId: number) => {
+  const handleUsarDescuento = async (clienteId: string) => {
     const cliente = clientes.find(c => c.id === clienteId);
     if (!cliente || !tieneDescuento(cliente.compras)) return;
     
     if (!confirm(`¿Aplicar 20% de descuento a ${cliente.nombre}?\nSe resetearán sus compras a 0.`)) return;
     
-    const updated = clientes.map(c => {
-      if (c.id === clienteId) {
-        showToast(`✅ Descuento de 20% aplicado a ${c.nombre}`, 'success');
-        return { ...c, compras: 0 };
-      }
-      return c;
-    });
-    saveClientes(updated);
+    try {
+      await updateCliente(clienteId, { compras: 0 });
+      showToast(`✅ Descuento de 20% aplicado a ${cliente.nombre}`, 'success');
+    } catch (err) {
+      showToast('Error al aplicar descuento', 'error');
+    }
   };
 
-  const handleEliminarCliente = (clienteId: number) => {
+  const handleEliminarCliente = async (clienteId: string) => {
     if (!confirm('¿Eliminar este cliente de fidelidad?')) return;
-    saveClientes(clientes.filter(c => c.id !== clienteId));
-    showToast('Cliente eliminado', 'success');
+    try {
+      await deleteCliente(clienteId);
+      showToast('Cliente eliminado', 'success');
+    } catch (err) {
+      showToast('Error al eliminar cliente', 'error');
+    }
   };
 
-  const handleEditarCliente = (cliente: Cliente) => {
+  const handleEditarCliente = (cliente: any) => {
     setClienteEditando({ ...cliente });
     setIsEditModalOpen(true);
   };
 
-  const handleGuardarEdicion = () => {
+  const handleGuardarEdicion = async () => {
     if (!clienteEditando) return;
     
-    if (!clienteEditando.nombre.trim() || !clienteEditando.telefono.trim()) {
+    if (!clienteEditando.nombre?.trim() || !clienteEditando.telefono?.trim()) {
       showToast('Nombre y teléfono son requeridos', 'warning');
       return;
     }
 
-    const updated = clientes.map(c => 
-      c.id === clienteEditando.id ? clienteEditando : c
-    );
-    saveClientes(updated);
-    setIsEditModalOpen(false);
-    setClienteEditando(null);
-    showToast('Cliente actualizado', 'success');
+    try {
+      await updateCliente(clienteEditando.id, clienteEditando);
+      setIsEditModalOpen(false);
+      setClienteEditando(null);
+      showToast('Cliente actualizado', 'success');
+    } catch (err) {
+      showToast('Error al guardar', 'error');
+    }
   };
 
   const getProgreso = (compras: number) => {
@@ -116,8 +90,8 @@ export function Fidelidad() {
   };
 
   const filteredClientes = clientes.filter(c =>
-    c.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    c.telefono.includes(searchTerm)
+    c.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    c.telefono?.includes(searchTerm)
   );
 
   const stats = {
@@ -125,6 +99,10 @@ export function Fidelidad() {
     conDescuento: clientes.filter(c => tieneDescuento(c.compras)).length,
     totalCompras: clientes.reduce((sum, c) => sum + c.compras, 0)
   };
+
+  if (!isReady) {
+    return <PageLoading />;
+  }
 
   return (
     <div className={styles.container}>
@@ -135,7 +113,6 @@ export function Fidelidad() {
         </div>
       </header>
 
-      {/* Stats */}
       <div className={styles.stats}>
         <div className={styles.statCard}>
           <Users size={24} className={styles.statIcon} />
@@ -160,7 +137,6 @@ export function Fidelidad() {
         </div>
       </div>
 
-      {/* Search */}
       <div className={styles.filters}>
         <div className={styles.searchWrapper}>
           <Search size={18} className={styles.searchIcon} />
@@ -174,7 +150,6 @@ export function Fidelidad() {
         </div>
       </div>
 
-      {/* Clientes Grid */}
       {filteredClientes.length === 0 ? (
         <div className={styles.empty}>
           <Users size={48} />
@@ -272,12 +247,10 @@ export function Fidelidad() {
         </div>
       )}
 
-      {/* Los clientes se agregan desde Ventas */}
       <div className={styles.infoBox}>
         <p>Los clientes se agregan automáticamente cuando creás una venta con cliente nuevo.</p>
       </div>
 
-      {/* Modal Editar Cliente */}
       <Modal
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
@@ -300,7 +273,7 @@ export function Fidelidad() {
               <label>Nombre *</label>
               <input
                 type="text"
-                value={clienteEditando.nombre}
+                value={clienteEditando.nombre || ''}
                 onChange={(e) => setClienteEditando({ ...clienteEditando, nombre: e.target.value })}
                 className="input"
                 placeholder="Nombre del cliente"
@@ -311,7 +284,7 @@ export function Fidelidad() {
               <label>Teléfono *</label>
               <input
                 type="tel"
-                value={clienteEditando.telefono}
+                value={clienteEditando.telefono || ''}
                 onChange={(e) => setClienteEditando({ ...clienteEditando, telefono: e.target.value.replace(/\D/g, '') })}
                 className="input"
                 placeholder="Teléfono"
@@ -365,7 +338,7 @@ export function Fidelidad() {
               <label>Compras realizadas</label>
               <input
                 type="number"
-                value={clienteEditando.compras}
+                value={clienteEditando.compras || 0}
                 onChange={(e) => setClienteEditando({ ...clienteEditando, compras: parseInt(e.target.value) || 0 })}
                 className="input"
                 min="0"
