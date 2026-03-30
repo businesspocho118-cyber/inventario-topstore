@@ -6,15 +6,16 @@ import styles from './Configuracion.module.css';
 
 export function Configuracion() {
   const { showToast } = useToast();
-  const { syncWithCatalog, getLastSync, resetData, isReady } = useFirestoreData() as any;
+  const { syncWithCatalog, getLastSync, resetData } = useFirestoreData() as any;
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSync, setLastSync] = useState<string | null>(null);
 
   useEffect(() => {
-    if (isReady && getLastSync) {
-      setLastSync(getLastSync());
+    if (getLastSync) {
+      const sync = getLastSync();
+      if (sync) setLastSync(sync);
     }
-  }, [isReady, getLastSync]);
+  }, [getLastSync]);
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -22,11 +23,12 @@ export function Configuracion() {
   };
 
   const handleSync = async () => {
-    if (!isReady || !syncWithCatalog) {
-      showToast('Esperando conexión con la base de datos...', 'warning');
+    if (!syncWithCatalog) {
+      showToast('Función de sincronización no disponible. Recargá la página.', 'warning');
       return;
     }
     setIsSyncing(true);
+    showToast('🔄 Sincronizando con el catálogo...', 'info');
     try {
       const result = await syncWithCatalog();
       const { success, removed, errors } = result;
@@ -35,7 +37,7 @@ export function Configuracion() {
       } else {
         showToast(`✅ ${success} productos sincronizados, ${removed} quitados`, 'success');
       }
-      setLastSync(getLastSync?.() || null);
+      setLastSync(getLastSync?.() || new Date().toISOString());
     } catch (error) {
       showToast('Error al sincronizar con el catálogo', 'error');
     }
