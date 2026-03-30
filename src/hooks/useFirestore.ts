@@ -321,7 +321,8 @@ export function useFirestore() {
     setIsLoading(true);
     const errors: string[] = [];
     let success = 0;
-    let removed = 0;
+
+    console.log('🔄 Descargando productos del catálogo...');
 
     try {
       const response = await fetch(CATALOG_URL);
@@ -331,21 +332,15 @@ export function useFirestore() {
       const doc = parser.parseFromString(html, 'text/html');
       const productCards = doc.querySelectorAll('.product-card');
       
-      const catalogProductIds: string[] = [];
+      console.log(`📦 Productos encontrados: ${productCards.length}`);
       
-      // Obtener productos actuales de Firestore
-      const currentSnapshot = await getDocs(collection(db, COLLECTIONS.PRODUCTOS));
-      const currentProductos = new Map();
-      currentSnapshot.docs.forEach((d) => {
-        const data = d.data();
-        currentProductos.set(data.product_id, { docId: d.id, ...data });
-      });
+      const productos: Producto[] = [];
+      let productIdCounter = 1;
 
       for (let i = 0; i < productCards.length; i++) {
         const card = productCards[i];
         try {
           const productId = card.getAttribute('data-product-id') || '';
-          catalogProductIds.push(productId);
           
           const name = card.getAttribute('data-name') || '';
           const price = card.getAttribute('data-price') || '';
@@ -365,88 +360,52 @@ export function useFirestore() {
           const colorList = colors.split(', ').map((c: string) => c.trim()).filter((c: string) => c);
           const validGender = gender === 'mujeres' ? 'mujeres' : 'hombres';
           
-          const existing = currentProductos.get(productId);
+          const newStockPorColor: Record<string, number> = {};
+          colorList.forEach((color: string) => {
+            newStockPorColor[color] = 0;
+          });
           
-          if (existing) {
-            // Producto existente - actualizar
-            const newStockPorColor: Record<string, number> = {};
-            const existingStock = existing.stock_por_color || {};
-            
-            colorList.forEach((color: string) => {
-              newStockPorColor[color] = existingStock[color] !== undefined ? existingStock[color] : 0;
-            });
-            
-            const totalStock = Object.values(newStockPorColor).reduce((a, b) => a + b, 0);
-            
-            await updateDoc(doc(db, COLLECTIONS.PRODUCTOS, existing.docId), {
-              nombre: name,
-              precio: price,
-              colores: colors,
-              stock_por_color: newStockPorColor,
-              stock: totalStock,
-              genero: validGender,
-              image_paths: imagePaths,
-              activo: true,
-              updated_at: new Date().toISOString()
-            });
-            
-            currentProductos.delete(productId);
-          } else {
-            // Producto nuevo
-            const newStockPorColor: Record<string, number> = {};
-            colorList.forEach((color: string) => {
-              newStockPorColor[color] = 0;
-            });
-            
-            const totalStock = Object.values(newStockPorColor).reduce((a, b) => a + b, 0);
-            
-            // Obtener el mayor ID actual
-            const maxId = currentSnapshot.docs.reduce((max, d) => {
-              const docId = d.data().id || 0;
-              return docId > max ? docId : max;
-            }, 0);
-            
-            await addDoc(collection(db, COLLECTIONS.PRODUCTOS), {
-              product_id: productId,
-              nombre: name,
-              descripcion: '',
-              precio: price,
-              colores: colors,
-              stock_por_color: newStockPorColor,
-              genero: validGender,
-              categoria: '',
-              image_paths: imagePaths,
-              stock: totalStock,
-              activo: true,
-              id: maxId + 1,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            });
-          }
+          const totalStock = Object.values(newStockPorColor).reduce((a, b) => a + b, 0);
+          
+          productos.push({
+            id: productIdCounter++,
+            product_id: productId,
+            nombre: name,
+            descripcion: '',
+            precio: price,
+            colores: colors,
+            stock_por_color: newStockPorColor,
+            stock: totalStock,
+            genero: validGender,
+            categoria: '',
+            image_paths: imagePaths,
+            activo: true,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          });
+          
           success++;
         } catch (e) {
           errors.push(`Error ${i}: ${e}`);
         }
       }
       
-      // Desactivar productos que ya no están en el catálogo
-      for (const [, product] of currentProductos) {
-        await updateDoc(doc(db, COLLECTIONS.PRODUCTOS, product.docId), {
-          activo: false,
-          updated_at: new Date().toISOString()
-        });
-        removed++;
-      }
-      
-      // Guardar última sincronización
+      // Guardar en localStorage
+      localStorage.setItem('topstore_productos', JSON.stringify(productos));
       localStorage.setItem('topstore_last_sync', new Date().toISOString());
       
+      console.log(`✅ ${success} productos guardados en localStorage`);
+      
+      // Recargar la página para usar los nuevos datos
+      window.location.reload();
+      
     } catch (error) {
+      console.error('❌ Error sincronizando:', error);
       errors.push(`Error conectando al catálogo: ${error}`);
     }
     
     setIsLoading(false);
-    return { success, removed, errors };
+    return { success, removed: 0, errors };
   }, []);
 
   const getLastSync = useCallback((): string | null => {
