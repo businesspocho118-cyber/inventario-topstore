@@ -43,7 +43,7 @@ interface FirestoreContextType {
 const FirestoreContext = createContext<FirestoreContextType | null>(null);
 
 export function FirestoreProvider({ children }: { children: ReactNode }) {
-  const { isMigrating } = useFirestoreInit();
+  const { isMigrating, fallbackData } = useFirestoreInit() as any;
   const firestore = useFirestore();
   
   // Estado local para datos en tiempo real
@@ -51,17 +51,25 @@ export function FirestoreProvider({ children }: { children: ReactNode }) {
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [clientes, setClientes] = useState<ClienteFidelidad[]>([]);
   
-  // Suscribirse a cambios en tiempo real cuando esté listo
+  // Usar datos por defecto si no hay conexión a Firestore
   useEffect(() => {
     if (isMigrating) return;
     
+    // Si hay datos de fallback (porque Firestore no funcionó), usarlos
+    if (fallbackData?.productos?.length > 0) {
+      console.log('📦 Usando datos por defecto (Fallback)');
+      setProductos(fallbackData.productos);
+      setPedidos(fallbackData.pedidos || []);
+      return;
+    }
+    
     // Suscribirse a productos
-    const unsubProductos = firestore.subscribeToProductos((data) => {
+    const unsubProductos = firestore.subscribeToProductos((data: Producto[]) => {
       setProductos(data);
     });
     
     // Suscribirse a pedidos
-    const unsubPedidos = firestore.subscribeToPedidos((data) => {
+    const unsubPedidos = firestore.subscribeToPedidos((data: Pedido[]) => {
       setPedidos(data);
     });
     
