@@ -483,6 +483,10 @@ export function useFirestore() {
     updateCliente,
     deleteCliente,
     // Stats
-    getStats
+    getStats,
+    // Catálogo
+    syncWithCatalog,
+    getLastSync,
+    resetData
   };
 }
