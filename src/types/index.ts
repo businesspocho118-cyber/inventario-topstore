@@ -22,6 +22,10 @@ export interface Pedido {
   fecha: string;
   cliente_nombre: string;
   cliente_telefono: string;
+  cliente_direccion?: string;
+  cliente_barrio?: string;
+  cliente_referencias?: string;
+  metodo_pago?: 'efectivo' | 'transferencia';
   estado: 'pendiente' | 'pagado' | 'enviado' | 'entregado';
   total: number;
   notas: string;
@@ -80,6 +84,10 @@ export interface UpdateProductoRequest extends Partial<CreateProductoRequest> {
 export interface CreatePedidoRequest {
   cliente_nombre: string;
   cliente_telefono: string;
+  cliente_direccion: string;
+  cliente_barrio: string;
+  cliente_referencias: string;
+  metodo_pago: 'efectivo' | 'transferencia';
   notas?: string;
   items: {
     producto_id: number;

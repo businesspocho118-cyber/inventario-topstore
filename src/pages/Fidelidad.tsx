@@ -7,6 +7,9 @@ interface Cliente {
   id: number;
   nombre: string;
   telefono: string;
+  direccion?: string;
+  referencias?: string;
+  ultimo_metodo_pago?: 'efectivo' | 'transferencia';
   compras: number;
   created_at: string;
 }
@@ -161,6 +164,21 @@ export function Fidelidad() {
                   <span className={styles.clientePhone}>
                     <Phone size={12} /> {cliente.telefono}
                   </span>
+                  {cliente.direccion && (
+                    <span className={styles.clienteDireccion}>
+                      📍 {cliente.direccion}
+                    </span>
+                  )}
+                  {cliente.referencias && (
+                    <span className={styles.clienteReferencias}>
+                      {cliente.referencias}
+                    </span>
+                  )}
+                  {cliente.ultimo_metodo_pago && (
+                    <span className={styles.clienteMetodo}>
+                      {cliente.ultimo_metodo_pago === 'efectivo' ? '💵' : '📱'} {cliente.ultimo_metodo_pago === 'efectivo' ? 'Efectivo' : 'Transferencia'}
+                    </span>
+                  )}
                 </div>
                 <button 
                   className={styles.deleteBtn}

@@ -53,11 +53,19 @@ export function Pedidos() {
   const [nuevoPedido, setNuevoPedido] = useState<{
     cliente_nombre: string;
     cliente_telefono: string;
+    cliente_direccion: string;
+    cliente_barrio: string;
+    cliente_referencias: string;
+    metodo_pago: 'efectivo' | 'transferencia';
     notas: string;
     items: PedidoItem[];
   }>({
     cliente_nombre: '',
     cliente_telefono: '',
+    cliente_direccion: '',
+    cliente_barrio: '',
+    cliente_referencias: '',
+    metodo_pago: 'efectivo',
     notas: '',
     items: []
   });
@@ -115,6 +123,10 @@ export function Pedidos() {
     setNuevoPedido({
       cliente_nombre: '',
       cliente_telefono: '',
+      cliente_direccion: '',
+      cliente_barrio: '',
+      cliente_referencias: '',
+      metodo_pago: 'efectivo',
       notas: '',
       items: []
     });
@@ -228,6 +240,16 @@ export function Pedidos() {
       return;
     }
     
+    if (!nuevoPedido.cliente_direccion.trim()) {
+      showToast('⚠️ Falta la dirección', 'warning');
+      return;
+    }
+    
+    if (!nuevoPedido.cliente_barrio.trim()) {
+      showToast('⚠️ Falta el barrio', 'warning');
+      return;
+    }
+    
     if (nuevoPedido.items.length === 0) {
       showToast('⚠️ Agrega al menos un producto', 'warning');
       return;
@@ -236,6 +258,10 @@ export function Pedidos() {
     const result = await createPedido({
       cliente_nombre: nuevoPedido.cliente_nombre,
       cliente_telefono: nuevoPedido.cliente_telefono,
+      cliente_direccion: nuevoPedido.cliente_direccion,
+      cliente_barrio: nuevoPedido.cliente_barrio,
+      cliente_referencias: nuevoPedido.cliente_referencias,
+      metodo_pago: nuevoPedido.metodo_pago,
       notas: nuevoPedido.notas,
       items: nuevoPedido.items.map(item => ({
         producto_id: item.producto_id,
@@ -495,6 +521,54 @@ export function Pedidos() {
               </div>
             </div>
           )}
+
+          <div className={styles.formGroup}>
+            <label>Dirección de entrega *</label>
+            <div className={styles.formGrid}>
+              <input
+                type="text"
+                value={nuevoPedido.cliente_direccion}
+                onChange={(e) => setNuevoPedido(prev => ({ ...prev, cliente_direccion: e.target.value }))}
+                className="input"
+                placeholder="Calle/Carrera #"
+              />
+              <input
+                type="text"
+                value={nuevoPedido.cliente_barrio}
+                onChange={(e) => setNuevoPedido(prev => ({ ...prev, cliente_barrio: e.target.value }))}
+                className="input"
+                placeholder="Barrio"
+              />
+            </div>
+            <input
+              type="text"
+              value={nuevoPedido.cliente_referencias}
+              onChange={(e) => setNuevoPedido(prev => ({ ...prev, cliente_referencias: e.target.value }))}
+              className="input"
+              style={{ marginTop: '0.5rem' }}
+              placeholder="Referencias (casa, apartamento, punto de referencia)"
+            />
+          </div>
+
+          <div className={styles.formGroup}>
+            <label>Método de pago *</label>
+            <div className={styles.tipoClienteRow}>
+              <button
+                type="button"
+                className={`${styles.tipoBtn} ${nuevoPedido.metodo_pago === 'efectivo' ? styles.tipoBtnActive : ''}`}
+                onClick={() => setNuevoPedido(prev => ({ ...prev, metodo_pago: 'efectivo' }))}
+              >
+                💵 Efectivo
+              </button>
+              <button
+                type="button"
+                className={`${styles.tipoBtn} ${nuevoPedido.metodo_pago === 'transferencia' ? styles.tipoBtnActive : ''}`}
+                onClick={() => setNuevoPedido(prev => ({ ...prev, metodo_pago: 'transferencia' }))}
+              >
+                📱 Transferencia
+              </button>
+            </div>
+          </div>
 
           <div className={styles.formGroup}>
             <label>Notas</label>
