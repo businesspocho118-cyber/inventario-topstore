@@ -42,9 +42,12 @@ const loadFromLocal = () => {
 // Cargar desde Supabase cuando no hay localStorage
 const loadFromSupabaseAndSave = async () => {
   try {
+    console.log('Cargando datos desde Supabase...');
     const { data: productosData } = await supabase.from(TABLES.PRODUCTOS).select('*').eq('activo', true).order('id');
     const { data: pedidosData } = await supabase.from(TABLES.PEDIDOS).select('*').order('id');
     const { data: clientesData } = await supabase.from(TABLES.CLIENTES).select('*').order('compras', { ascending: false });
+    
+    console.log('Desde Supabase:', productosData?.length || 0, 'productos,', pedidosData?.length || 0, 'pedidos,', clientesData?.length || 0, 'clientes');
     
     if (productosData && productosData.length > 0) {
       productosDb = productosData;
@@ -81,10 +84,21 @@ const syncOneProductoToSupabase = async (producto: Producto) => {
 
 // Sync a Supabase - solo el pedido específico
 const syncOnePedidoToSupabase = async (pedido: Pedido) => {
-  if (!supabaseConnected) return;
+  if (!supabaseConnected) {
+    console.log('No hay conexión a Supabase para sync pedido');
+    return;
+  }
   try {
-    await supabase.from(TABLES.PEDIDOS).upsert(pedido, { onConflict: 'id' });
-  } catch (e) { /* ignore */ }
+    console.log('Sincronizando pedido a Supabase:', pedido.id, pedido.cliente_nombre);
+    const { error } = await supabase.from(TABLES.PEDIDOS).upsert(pedido, { onConflict: 'id' });
+    if (error) {
+      console.error('Error sync pedido:', error);
+    } else {
+      console.log('Pedido sync OK:', pedido.id);
+    }
+  } catch (e) {
+    console.error('Exception sync pedido:', e);
+  }
 };
 
 // Sync un cliente a Supabase
@@ -373,7 +387,7 @@ export function useApi() {
     
     pedidosDb[idx].estado = estado as Pedido['estado'];
     saveToLocal();
-    syncOneProductoToSupabase(productosDb[idx]);
+    syncOnePedidoToSupabase(pedidosDb[idx]);
     
     setIsLoading(false);
     return { success: true, data: pedidosDb[idx] };
