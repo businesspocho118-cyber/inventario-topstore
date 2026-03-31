@@ -312,7 +312,7 @@ export function useApi() {
     const total = req.items.reduce((sum, item) => sum + (item.cantidad * item.precio_unitario), 0);
     
     const nuevo: Pedido = {
-      id: Date.now() + Math.floor(Math.random() * 1000), // ID único basado en timestamp
+      id: Math.floor(Date.now() / 1000) + Math.floor(Math.random() * 1000), // ID en segundos (cabe en integer)
       fecha: new Date().toISOString(),
       cliente_nombre: req.cliente_nombre,
       cliente_telefono: req.cliente_telefono,
@@ -341,7 +341,7 @@ export function useApi() {
       clienteActualizado = clientes[cIdx];
     } else {
       clienteActualizado = {
-        id: Date.now(),
+        id: Math.floor(Date.now() / 1000) + Math.floor(Math.random() * 1000),
         nombre: req.cliente_nombre,
         telefono: req.cliente_telefono,
         direccion: `${req.cliente_direccion}, ${req.cliente_barrio}`,
