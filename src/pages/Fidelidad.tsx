@@ -3,51 +3,34 @@ import { Star, Users, Gift, Search, Plus, Trash2, Phone, Pencil } from 'lucide-r
 import { useToast } from '../components/Toast';
 import { Modal } from '../components/Modal';
 import { PageLoading } from '../components/Loading';
+import { useApi } from '../hooks/useApi';
 import styles from './Fidelidad.module.css';
 
 const COMPRAS_PARA_DESCUENTO = 6;
 const PORCENTAJE_DESCUENTO = 20;
-const STORAGE_KEY = 'topstore_clientes_fidelidad';
 
 const getComprasQueCuentan = (compras: number) => Math.max(0, compras - 1);
 const tieneDescuento = (compras: number) => getComprasQueCuentan(compras) >= COMPRAS_PARA_DESCUENTO;
 
-interface Cliente {
-  id: number;
-  nombre: string;
-  telefono: string;
-  direccion?: string;
-  referencias?: string;
-  ultimo_metodo_pago?: 'efectivo' | 'transferencia';
-  compras: number;
-  created_at: string;
-}
-
 export function Fidelidad() {
+  const { getClientes, saveCliente, deleteCliente } = useApi();
   const { showToast } = useToast();
-  const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [clientes, setClientes] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [clienteEditando, setClienteEditando] = useState<any>(null);
 
   useEffect(() => {
     loadClientes();
   }, []);
 
-  const loadClientes = () => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      setClientes(JSON.parse(stored));
-    }
+  const loadClientes = async () => {
+    setIsLoading(true);
+    const result = await getClientes();
+    setClientes(result);
     setIsLoading(false);
   };
-
-  const saveClientes = (newClientes: Cliente[]) => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(newClientes));
-    setClientes(newClientes);
-  };
-  
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [clienteEditando, setClienteEditando] = useState<any>(null);
 
   const handleAgregarCompra = async (clienteId: number) => {
     const cliente = clientes.find(c => c.id === clienteId);
@@ -56,14 +39,13 @@ export function Fidelidad() {
     const newCompras = cliente.compras + 1;
     const comprasQueCuentan = getComprasQueCuentan(newCompras);
     if (comprasQueCuentan === COMPRAS_PARA_DESCUENTO) {
-      showToast(`🎉 ${cliente.nombre} completó ${COMPRAS_PARA_DESCUENTO} compras (desde la 2da)! 20% descuento disponible`, 'success');
+      showToast(`🎉 ${cliente.nombre} completó ${COMPRAS_PARA_DESCUENTO} compras! 20% descuento disponible`, 'success');
     }
     
     try {
-      const nuevosClientes = clientes.map(c => 
-        c.id === clienteId ? { ...c, compras: newCompras } : c
-      );
-      saveClientes(nuevosClientes);
+      const updatedCliente = { ...cliente, compras: newCompras };
+      await saveCliente(updatedCliente);
+      setClientes(prev => prev.map(c => c.id === clienteId ? { ...c, compras: newCompras } : c));
     } catch (err) {
       showToast('Error al actualizar compras', 'error');
     }
@@ -73,14 +55,13 @@ export function Fidelidad() {
     const cliente = clientes.find(c => c.id === clienteId);
     if (!cliente || !tieneDescuento(cliente.compras)) return;
     
-    if (!confirm(`¿Aplicar 20% de descuento a ${cliente.nombre}?\nSe resetearán sus compras a 0.`)) return;
+    if (!confirm(`¿Aplicar 20% de descuento a ${cliente.nombre}? Se resetearán sus compras a 0.`)) return;
     
     try {
-      const nuevosClientes = clientes.map(c => 
-        c.id === clienteId ? { ...c, compras: 0 } : c
-      );
-      saveClientes(nuevosClientes);
-      showToast(`✅ Descuento de 20% aplicado a ${cliente.nombre}`, 'success');
+      const updatedCliente = { ...cliente, compras: 0 };
+      await saveCliente(updatedCliente);
+      setClientes(prev => prev.map(c => c.id === clienteId ? { ...c, compras: 0 } : c));
+      showToast(`✅ Descuento aplicado a ${cliente.nombre}`, 'success');
     } catch (err) {
       showToast('Error al aplicar descuento', 'error');
     }
@@ -89,8 +70,8 @@ export function Fidelidad() {
   const handleEliminarCliente = async (clienteId: number) => {
     if (!confirm('¿Eliminar este cliente de fidelidad?')) return;
     try {
-      const nuevosClientes = clientes.filter(c => c.id !== clienteId);
-      saveClientes(nuevosClientes);
+      await deleteCliente(clienteId);
+      setClientes(prev => prev.filter(c => c.id !== clienteId));
       showToast('Cliente eliminado', 'success');
     } catch (err) {
       showToast('Error al eliminar cliente', 'error');
@@ -111,10 +92,8 @@ export function Fidelidad() {
     }
 
     try {
-      const nuevosClientes = clientes.map(c => 
-        c.id === clienteEditando.id ? { ...c, ...clienteEditando } : c
-      );
-      saveClientes(nuevosClientes);
+      await saveCliente(clienteEditando);
+      setClientes(prev => prev.map(c => c.id === clienteEditando.id ? clienteEditando : c));
       setIsEditModalOpen(false);
       setClienteEditando(null);
       showToast('Cliente actualizado', 'success');
@@ -354,33 +333,13 @@ export function Fidelidad() {
             </div>
 
             <div className={styles.formGroup}>
-              <label>Método de pago preferido</label>
-              <div className={styles.tipoClienteRow}>
-                <button
-                  type="button"
-                  className={`${styles.tipoBtn} ${clienteEditando.ultimo_metodo_pago === 'efectivo' ? styles.tipoBtnActive : ''}`}
-                  onClick={() => setClienteEditando({ ...clienteEditando, ultimo_metodo_pago: 'efectivo' })}
-                >
-                  💵 Efectivo
-                </button>
-                <button
-                  type="button"
-                  className={`${styles.tipoBtn} ${clienteEditando.ultimo_metodo_pago === 'transferencia' ? styles.tipoBtnActive : ''}`}
-                  onClick={() => setClienteEditando({ ...clienteEditando, ultimo_metodo_pago: 'transferencia' })}
-                >
-                  📱 Transferencia
-                </button>
-              </div>
-            </div>
-
-            <div className={styles.formGroup}>
-              <label>Compras realizadas</label>
+              <label>Compras</label>
               <input
                 type="number"
                 value={clienteEditando.compras || 0}
                 onChange={(e) => setClienteEditando({ ...clienteEditando, compras: parseInt(e.target.value) || 0 })}
                 className="input"
-                min="0"
+                min={0}
               />
             </div>
           </div>
