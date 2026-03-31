@@ -34,27 +34,47 @@ const pedidoCallbacks: ChangeCallback[] = [];
 // Función para recargar datos desde Supabase
 const reloadFromSupabase = async () => {
   console.log('Cambio detectado en Supabase, recargando datos...');
+  
+  // Primero cargar datos de Supabase
   const data = await loadFromSupabase();
-  if (data.productos.length > 0 || data.pedidos.length > 0) {
-    productosDb = data.productos;
+  
+  // IMPORTANTE: Solo actualizar si Supabase tiene datos
+  // Si Supabase tiene 0 pedidos, mantener los datos locales
+  if (data.pedidos.length > 0) {
     pedidosDb = data.pedidos;
-    nextProductoId = (productosDb.length > 0 ? Math.max(...productosDb.map(p => p.id)) : 0) + 1;
     nextPedidoId = (pedidosDb.length > 0 ? Math.max(...pedidosDb.map(p => p.id)) : 0) + 1;
-    
-    // GUARDAR en localStorage también para que persista
-    localStorage.setItem(STORAGE_KEYS.productos, JSON.stringify(productosDb));
     localStorage.setItem(STORAGE_KEYS.pedidos, JSON.stringify(pedidosDb));
-    console.log('Datos guardados en localStorage desde Supabase');
-    
-    // Notificar callbacks
-    productoCallbacks.forEach(cb => cb());
-    pedidoCallbacks.forEach(cb => cb());
-    console.log('Datos recargados desde Supabase');
+    console.log('Pedidos actualizados desde Supabase:', pedidosDb.length);
+  } else {
+    console.log('Supabase tiene 0 pedidos, manteniendo datos locales');
   }
+  
+  if (data.productos.length > 0) {
+    productosDb = data.productos;
+    nextProductoId = (productosDb.length > 0 ? Math.max(...productosDb.map(p => p.id)) : 0) + 1;
+    localStorage.setItem(STORAGE_KEYS.productos, JSON.stringify(productosDb));
+    console.log('Productos actualizados desde Supabase:', productosDb.length);
+  }
+  
+  // Notificar callbacks
+  productoCallbacks.forEach(cb => cb());
+  pedidoCallbacks.forEach(cb => cb());
+  console.log('Datos recargados desde Supabase');
 };
 
 // Configurar suscripciones a Supabase (solo una vez)
 let subscriptionsSetup = false;
+let reloadTimeout: ReturnType<typeof setTimeout> | null = null;
+
+// Función de reload con debounce para evitar múltiples llamadas seguidas
+const debouncedReload = () => {
+  if (reloadTimeout) {
+    clearTimeout(reloadTimeout);
+  }
+  reloadTimeout = setTimeout(() => {
+    reloadFromSupabase();
+  }, 500); // Esperar 500ms antes de recargar
+};
 
 const setupSupabaseSubscriptions = () => {
   if (subscriptionsSetup || !supabaseConnected) return;
@@ -68,7 +88,7 @@ const setupSupabaseSubscriptions = () => {
         { event: '*', schema: 'public', table: TABLES.PRODUCTOS },
         () => {
           console.log('Cambio en productos detectado!');
-          reloadFromSupabase();
+          debouncedReload();
         }
       )
       .subscribe();
@@ -81,7 +101,7 @@ const setupSupabaseSubscriptions = () => {
         { event: '*', schema: 'public', table: TABLES.PEDIDOS },
         () => {
           console.log('Cambio en pedidos detectado!');
-          reloadFromSupabase();
+          debouncedReload();
         }
       )
       .subscribe();
