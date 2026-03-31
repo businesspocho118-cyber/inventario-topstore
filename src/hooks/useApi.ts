@@ -41,6 +41,11 @@ const reloadFromSupabase = async () => {
     nextProductoId = (productosDb.length > 0 ? Math.max(...productosDb.map(p => p.id)) : 0) + 1;
     nextPedidoId = (pedidosDb.length > 0 ? Math.max(...pedidosDb.map(p => p.id)) : 0) + 1;
     
+    // GUARDAR en localStorage también para que persista
+    localStorage.setItem(STORAGE_KEYS.productos, JSON.stringify(productosDb));
+    localStorage.setItem(STORAGE_KEYS.pedidos, JSON.stringify(pedidosDb));
+    console.log('Datos guardados en localStorage desde Supabase');
+    
     // Notificar callbacks
     productoCallbacks.forEach(cb => cb());
     pedidoCallbacks.forEach(cb => cb());
@@ -418,9 +423,43 @@ const saveToStorageAsync = async () => {
 };
 
 // Cargar datos desde JSON (con soporte localStorage y Supabase)
-const loadData = async () => {
-  if (dataLoaded) return;
+const loadData = async (forceReload = false) => {
+  // Si ya está cargado y no se fuerza recarga, salir
+  if (dataLoaded && !forceReload) return;
   
+  // IMPORTANTE: Primero cargar desde localStorage para tener los datos más recientes
+  // que pueden no estar aún en Supabase
+  const storedProductos = localStorage.getItem(STORAGE_KEYS.productos);
+  const storedPedidos = localStorage.getItem(STORAGE_KEYS.pedidos);
+  
+  if (storedProductos && storedPedidos) {
+    productosDb = JSON.parse(storedProductos);
+    pedidosDb = JSON.parse(storedPedidos);
+    console.log('Datos cargados desde localStorage (prioritario):', productosDb.length, 'productos,', pedidosDb.length, 'pedidos');
+    
+    // Actualizar IDs
+    nextProductoId = (productosDb.length > 0 ? Math.max(...productosDb.map(p => p.id)) : 0) + 1;
+    nextPedidoId = (pedidosDb.length > 0 ? Math.max(...pedidosDb.map(p => p.id)) : 0) + 1;
+    
+    dataLoaded = true;
+    
+    // Luego intentar sincronizar con Supabase en background
+    await checkSupabaseConnection();
+    if (supabaseConnected) {
+      setupSupabaseSubscriptions();
+      // Sincronizar datos locales a Supabase
+      for (const producto of productosDb) {
+        await syncProductoToSupabase(producto);
+      }
+      for (const pedido of pedidosDb) {
+        await syncPedidoToSupabase(pedido);
+      }
+      console.log('Datos sincronizados a Supabase');
+    }
+    return;
+  }
+  
+  // Si no hay localStorage, intentar Supabase
   try {
     // Primero verificar conexión a Supabase
     await checkSupabaseConnection();
@@ -679,8 +718,7 @@ export function useApi() {
   const getProductos = useCallback(async (): Promise<ApiResponse<Producto[]>> => {
     setIsLoading(true);
     // Forzar recarga para obtener los productos más recientes
-    dataLoaded = false;
-    await loadData();
+    await loadData(true); // true = forzar recarga
     await new Promise(r => setTimeout(r, 300));
     const activos = productosDb.filter(p => p.activo);
     setIsLoading(false);
@@ -781,8 +819,7 @@ export function useApi() {
     setIsLoading(true);
     console.log('=== getPedidos called ===');
     // Forzar recarga para obtener los pedidos más recientes
-    dataLoaded = false;
-    await loadData();
+    await loadData(true); // true = forzar recarga
     console.log('=== getPedidos returning, pedidosDb length:', pedidosDb.length);
     console.log('=== getPedidos returning, pedidosDb:', JSON.stringify(pedidosDb.map(p => ({id: p.id, cliente: p.cliente_nombre, estado: p.estado}))));
     await new Promise(r => setTimeout(r, 300));
