@@ -40,6 +40,25 @@ export function Productos() {
 
   useEffect(() => {
     loadProductos();
+    
+    // Recargar cuando la ventana recibe foco
+    const handleFocus = () => {
+      loadProductos();
+    };
+    
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        loadProductos();
+      }
+    };
+    
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, []);
 
   const loadProductos = async () => {

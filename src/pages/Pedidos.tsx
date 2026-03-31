@@ -75,9 +75,31 @@ export function Pedidos() {
   const [tipoCliente, setTipoCliente] = useState<'nuevo' | 'existente'>('nuevo');
   const [clienteSeleccionado, setClienteSeleccionado] = useState<number | ''>('');
 
-  // Load data on mount
+  // Load data on mount and when window regains focus
   useEffect(() => {
     loadData();
+    
+    // Recargar cuando la ventana recibe foco (cambió de pestaña y volvió)
+    const handleFocus = () => {
+      console.log('Ventana recibió foco - recargando pedidos...');
+      loadData();
+    };
+    
+    // Recargar cuando la página se vuelve visible
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        console.log('Página visible - recargando pedidos...');
+        loadData();
+      }
+    };
+    
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, []);
 
   useEffect(() => {
