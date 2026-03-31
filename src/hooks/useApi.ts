@@ -779,9 +779,12 @@ export function useApi() {
   // Pedidos
   const getPedidos = useCallback(async (): Promise<ApiResponse<Pedido[]>> => {
     setIsLoading(true);
+    console.log('=== getPedidos called ===');
     // Forzar recarga para obtener los pedidos más recientes
     dataLoaded = false;
     await loadData();
+    console.log('=== getPedidos returning, pedidosDb length:', pedidosDb.length);
+    console.log('=== getPedidos returning, pedidosDb:', JSON.stringify(pedidosDb.map(p => ({id: p.id, cliente: p.cliente_nombre, estado: p.estado}))));
     await new Promise(r => setTimeout(r, 300));
     setIsLoading(false);
     return { success: true, data: [...pedidosDb] };

@@ -260,16 +260,22 @@ export function Pedidos() {
       });
       
       if (result.success) {
-        showToast('Pedido creado correctamente', 'success');
+        console.log('=== Pedido created successfully, now reloading ===');
         // Recargar pedidos y productos
-        const [pedidosResult] = await Promise.all([
+        const [pedidosResult, productosResult] = await Promise.all([
           getPedidos(),
           getProductos()
         ]);
         
+        console.log('=== After reload, pedidosResult:', pedidosResult);
+        console.log('=== After reload, pedidosResult.data:', pedidosResult.data);
+        
         if (pedidosResult.success && pedidosResult.data) {
+          console.log('=== Setting pedidos state with:', pedidosResult.data);
           setPedidos(pedidosResult.data);
           setFilteredPedidos(pedidosResult.data);
+        } else {
+          console.log('=== ERROR: pedidosResult not successful:', pedidosResult.error);
         }
         
         // Recargar clientes de fidelidad
