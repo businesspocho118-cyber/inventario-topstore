@@ -243,7 +243,7 @@ export function Pedidos() {
     }
 
     try {
-      await createPedido({
+      const result = await createPedido({
         cliente_nombre: nuevoPedido.cliente_nombre,
         cliente_telefono: nuevoPedido.cliente_telefono,
         cliente_direccion: nuevoPedido.cliente_direccion,
@@ -258,8 +258,30 @@ export function Pedidos() {
           color: item.color
         }))
       });
-      showToast('Pedido creado correctamente', 'success');
-      handleCloseModal();
+      
+      if (result.success) {
+        showToast('Pedido creado correctamente', 'success');
+        // Recargar pedidos y productos
+        const [pedidosResult] = await Promise.all([
+          getPedidos(),
+          getProductos()
+        ]);
+        
+        if (pedidosResult.success && pedidosResult.data) {
+          setPedidos(pedidosResult.data);
+          setFilteredPedidos(pedidosResult.data);
+        }
+        
+        // Recargar clientes de fidelidad
+        const stored = localStorage.getItem('topstore_clientes_fidelidad');
+        if (stored) {
+          setClientes(JSON.parse(stored));
+        }
+        
+        handleCloseModal();
+      } else {
+        showToast(result.error || 'Error al crear pedido', 'error');
+      }
     } catch (err) {
       showToast('Error al crear pedido', 'error');
     }
