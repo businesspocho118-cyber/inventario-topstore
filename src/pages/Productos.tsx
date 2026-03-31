@@ -111,7 +111,7 @@ export function Productos() {
     
     if (editingProducto) {
       try {
-        await updateProducto(String(editingProducto.id), productoData as UpdateProductoRequest);
+        await updateProducto(editingProducto.id, productoData as UpdateProductoRequest);
         showToast('Producto actualizado correctamente', 'success');
         handleCloseModal();
       } catch (err) {
@@ -132,7 +132,7 @@ export function Productos() {
     if (!confirm('¿Estás seguro de eliminar este producto?')) return;
     
     try {
-      await deleteProducto(String(id));
+      await deleteProducto(id);
       showToast('Producto eliminado', 'success');
     } catch (err) {
       showToast('Error al eliminar', 'error');
