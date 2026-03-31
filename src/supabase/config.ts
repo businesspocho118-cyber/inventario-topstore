@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
 // Credenciales de Supabase proporcionadas por el usuario
-const supabaseUrl = 'https://topstore-inventory.supabase.co';
+const supabaseUrl = 'https://mwilpokulvssoomdytyk.supabase.co';
 const supabaseAnonKey = 'sb_publishable_OiJCm8hcQSKavJXEOhpwSw_-tRabEWn';
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
