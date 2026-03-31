@@ -678,6 +678,8 @@ export function useApi() {
   // Productos
   const getProductos = useCallback(async (): Promise<ApiResponse<Producto[]>> => {
     setIsLoading(true);
+    // Forzar recarga para obtener los productos más recientes
+    dataLoaded = false;
     await loadData();
     await new Promise(r => setTimeout(r, 300));
     const activos = productosDb.filter(p => p.activo);
@@ -777,6 +779,8 @@ export function useApi() {
   // Pedidos
   const getPedidos = useCallback(async (): Promise<ApiResponse<Pedido[]>> => {
     setIsLoading(true);
+    // Forzar recarga para obtener los pedidos más recientes
+    dataLoaded = false;
     await loadData();
     await new Promise(r => setTimeout(r, 300));
     setIsLoading(false);
