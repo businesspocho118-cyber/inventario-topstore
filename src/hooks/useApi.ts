@@ -44,6 +44,7 @@ const loadFromSupabaseAndSave = async () => {
   try {
     const { data: productosData } = await supabase.from(TABLES.PRODUCTOS).select('*').eq('activo', true).order('id');
     const { data: pedidosData } = await supabase.from(TABLES.PEDIDOS).select('*').order('id');
+    const { data: clientesData } = await supabase.from(TABLES.CLIENTES).select('*').order('compras', { ascending: false });
     
     if (productosData && productosData.length > 0) {
       productosDb = productosData;
@@ -53,6 +54,11 @@ const loadFromSupabaseAndSave = async () => {
     if (pedidosData && pedidosData.length > 0) {
       pedidosDb = pedidosData;
       nextPedidoId = (pedidosDb.length ? Math.max(...pedidosDb.map(p => p.id)) : 0) + 1;
+    }
+    
+    // Guardar clientes en localStorage
+    if (clientesData && clientesData.length > 0) {
+      localStorage.setItem(STORAGE_KEYS.clientes, JSON.stringify(clientesData));
     }
     
     // GUARDAR en localStorage después de cargar de Supabase
@@ -78,6 +84,14 @@ const syncOnePedidoToSupabase = async (pedido: Pedido) => {
   if (!supabaseConnected) return;
   try {
     await supabase.from(TABLES.PEDIDOS).upsert(pedido, { onConflict: 'id' });
+  } catch (e) { /* ignore */ }
+};
+
+// Sync un cliente a Supabase
+const syncOneClienteToSupabase = async (cliente: any) => {
+  if (!supabaseConnected) return;
+  try {
+    await supabase.from(TABLES.CLIENTES).upsert(cliente, { onConflict: 'id' });
   } catch (e) { /* ignore */ }
 };
 
@@ -108,9 +122,10 @@ const setupRealtimeSubscriptions = (onDataChange: () => void) => {
     // Suscribirse a cambios en clientes
     supabase.channel('clientes-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: TABLES.CLIENTES }, async () => {
-        const { data } = await supabase.from(TABLES.CLIENTES).select('*');
+        const { data } = await supabase.from(TABLES.CLIENTES).select('*').order('compras', { ascending: false });
         if (data) {
           localStorage.setItem(STORAGE_KEYS.clientes, JSON.stringify(data));
+          console.log('Clientes actualizados desde Supabase:', data.length);
           onDataChange();
         }
       })
@@ -304,10 +319,13 @@ export function useApi() {
     if (stored) clientes = JSON.parse(stored);
     
     const cIdx = clientes.findIndex(c => c.telefono === req.cliente_telefono);
+    let clienteActualizado: any;
+    
     if (cIdx !== -1) {
       clientes[cIdx].compras += 1;
+      clienteActualizado = clientes[cIdx];
     } else {
-      clientes.push({
+      clienteActualizado = {
         id: Date.now(),
         nombre: req.cliente_nombre,
         telefono: req.cliente_telefono,
@@ -316,9 +334,11 @@ export function useApi() {
         ultimo_metodo_pago: req.metodo_pago,
         compras: 1,
         created_at: new Date().toISOString()
-      });
+      };
+      clientes.push(clienteActualizado);
     }
     localStorage.setItem(FIDELIDAD_KEY, JSON.stringify(clientes));
+    syncOneClienteToSupabase(clienteActualizado);
     
     // Reducir stock y sincronizar cada producto
     req.items.forEach(item => {
@@ -368,14 +388,15 @@ export function useApi() {
       return { success: false, error: 'Pedido no encontrado' };
     }
     
-    pedidosDb.splice(idx, 1);
-    pedidosDb.forEach((p, i) => p.id = i + 1);
-    nextPedidoId = pedidosDb.length + 1;
-    
-    saveToLocal();
+    // Primero eliminar de Supabase (con el ID original)
     if (supabaseConnected) {
       await supabase.from(TABLES.PEDIDOS).delete().eq('id', id);
     }
+    
+    // Luego eliminar localmente
+    pedidosDb.splice(idx, 1);
+    
+    saveToLocal();
     
     setIsLoading(false);
     return { success: true };
