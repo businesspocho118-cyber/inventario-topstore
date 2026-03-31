@@ -122,9 +122,10 @@ const setupRealtimeSubscriptions = (onDataChange: () => void) => {
     // Suscribirse a cambios en clientes
     supabase.channel('clientes-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: TABLES.CLIENTES }, async () => {
-        const { data } = await supabase.from(TABLES.CLIENTES).select('*');
+        const { data } = await supabase.from(TABLES.CLIENTES).select('*').order('compras', { ascending: false });
         if (data) {
           localStorage.setItem(STORAGE_KEYS.clientes, JSON.stringify(data));
+          console.log('Clientes actualizados desde Supabase:', data.length);
           onDataChange();
         }
       })
@@ -387,14 +388,15 @@ export function useApi() {
       return { success: false, error: 'Pedido no encontrado' };
     }
     
-    pedidosDb.splice(idx, 1);
-    pedidosDb.forEach((p, i) => p.id = i + 1);
-    nextPedidoId = pedidosDb.length + 1;
-    
-    saveToLocal();
+    // Primero eliminar de Supabase (con el ID original)
     if (supabaseConnected) {
       await supabase.from(TABLES.PEDIDOS).delete().eq('id', id);
     }
+    
+    // Luego eliminar localmente
+    pedidosDb.splice(idx, 1);
+    
+    saveToLocal();
     
     setIsLoading(false);
     return { success: true };
