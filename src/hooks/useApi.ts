@@ -99,11 +99,22 @@ const STORAGE_KEYS = {
 // Verificar conexión a Supabase
 const checkSupabaseConnection = async (): Promise<boolean> => {
   try {
-    const { error } = await supabase.from(TABLES.PRODUCTOS).select('id').limit(1);
-    supabaseConnected = !error;
-    console.log('Supabase connection:', supabaseConnected ? 'OK' : 'FAILED');
+    // Intentar hacer una consulta simple
+    const { data, error } = await supabase
+      .from(TABLES.PRODUCTOS)
+      .select('id, nombre')
+      .limit(5);
+    
+    if (error) {
+      console.log('Supabase connection FAILED:', error.message);
+      supabaseConnected = false;
+    } else {
+      supabaseConnected = true;
+      console.log('Supabase connection: OK', data?.length || 0, 'productos encontrados');
+    }
     return supabaseConnected;
-  } catch (e) {
+  } catch (e: any) {
+    console.log('Supabase connection ERROR:', e?.message || e);
     supabaseConnected = false;
     return false;
   }
@@ -111,9 +122,13 @@ const checkSupabaseConnection = async (): Promise<boolean> => {
 
 // Sincronizar producto a Supabase
 const syncProductoToSupabase = async (producto: Producto): Promise<void> => {
-  if (!supabaseConnected) return;
+  if (!supabaseConnected) {
+    console.log('Supabase not connected, skipping sync producto');
+    return;
+  }
   
   try {
+    console.log('Syncing producto to Supabase:', producto.nombre);
     const { error } = await supabase
       .from(TABLES.PRODUCTOS)
       .upsert({
@@ -134,6 +149,8 @@ const syncProductoToSupabase = async (producto: Producto): Promise<void> => {
 
     if (error) {
       console.error('Error syncing producto to Supabase:', error);
+    } else {
+      console.log('Producto synced to Supabase:', producto.nombre);
     }
   } catch (e) {
     console.error('Exception syncing producto:', e);
@@ -142,9 +159,13 @@ const syncProductoToSupabase = async (producto: Producto): Promise<void> => {
 
 // Sincronizar pedido a Supabase
 const syncPedidoToSupabase = async (pedido: Pedido): Promise<void> => {
-  if (!supabaseConnected) return;
+  if (!supabaseConnected) {
+    console.log('Supabase not connected, skipping sync pedido');
+    return;
+  }
   
   try {
+    console.log('Syncing pedido to Supabase:', pedido.id, pedido.cliente_nombre);
     const { error } = await supabase
       .from(TABLES.PEDIDOS)
       .upsert({
@@ -163,6 +184,8 @@ const syncPedidoToSupabase = async (pedido: Pedido): Promise<void> => {
 
     if (error) {
       console.error('Error syncing pedido to Supabase:', error);
+    } else {
+      console.log('Pedido synced to Supabase:', pedido.id);
     }
   } catch (e) {
     console.error('Exception syncing pedido:', e);
@@ -190,10 +213,13 @@ const deletePedidoFromSupabase = async (pedidoId: number): Promise<void> => {
 // Cargar datos desde Supabase
 const loadFromSupabase = async (): Promise<{ productos: Producto[], pedidos: Pedido[] }> => {
   if (!supabaseConnected) {
+    console.log('Supabase not connected, skipping load');
     return { productos: [], pedidos: [] };
   }
 
   try {
+    console.log('Loading data from Supabase...');
+    
     // Cargar productos
     const { data: productosData, error: productosError } = await supabase
       .from(TABLES.PRODUCTOS)
@@ -201,14 +227,25 @@ const loadFromSupabase = async (): Promise<{ productos: Producto[], pedidos: Ped
       .eq('activo', true)
       .order('id');
 
+    if (productosError) {
+      console.error('Error loading productos from Supabase:', productosError);
+    } else {
+      console.log('Loaded productos from Supabase:', productosData?.length || 0);
+    }
+
     // Cargar pedidos
     const { data: pedidosData, error: pedidosError } = await supabase
       .from(TABLES.PEDIDOS)
       .select('*')
       .order('id');
 
+    if (pedidosError) {
+      console.error('Error loading pedidos from Supabase:', pedidosError);
+    } else {
+      console.log('Loaded pedidos from Supabase:', pedidosData?.length || 0);
+    }
+
     if (productosError || pedidosError) {
-      console.error('Error loading from Supabase:', productosError || pedidosError);
       return { productos: [], pedidos: [] };
     }
 
