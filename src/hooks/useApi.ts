@@ -33,8 +33,6 @@ const pedidoCallbacks: ChangeCallback[] = [];
 
 // Función para recargar datos desde Supabase
 const reloadFromSupabase = async () => {
-  console.log('Cambio detectado en Supabase, recargando datos...');
-  
   // Primero cargar datos de Supabase
   const data = await loadFromSupabase();
   
@@ -44,22 +42,17 @@ const reloadFromSupabase = async () => {
     pedidosDb = data.pedidos;
     nextPedidoId = (pedidosDb.length > 0 ? Math.max(...pedidosDb.map(p => p.id)) : 0) + 1;
     localStorage.setItem(STORAGE_KEYS.pedidos, JSON.stringify(pedidosDb));
-    console.log('Pedidos actualizados desde Supabase:', pedidosDb.length);
-  } else {
-    console.log('Supabase tiene 0 pedidos, manteniendo datos locales');
   }
   
   if (data.productos.length > 0) {
     productosDb = data.productos;
     nextProductoId = (productosDb.length > 0 ? Math.max(...productosDb.map(p => p.id)) : 0) + 1;
     localStorage.setItem(STORAGE_KEYS.productos, JSON.stringify(productosDb));
-    console.log('Productos actualizados desde Supabase:', productosDb.length);
   }
   
   // Notificar callbacks
   productoCallbacks.forEach(cb => cb());
   pedidoCallbacks.forEach(cb => cb());
-  console.log('Datos recargados desde Supabase');
 };
 
 // Configurar suscripciones a Supabase (solo una vez)
@@ -87,7 +80,6 @@ const setupSupabaseSubscriptions = () => {
         'postgres_changes',
         { event: '*', schema: 'public', table: TABLES.PRODUCTOS },
         () => {
-          console.log('Cambio en productos detectado!');
           debouncedReload();
         }
       )
@@ -100,7 +92,6 @@ const setupSupabaseSubscriptions = () => {
         'postgres_changes',
         { event: '*', schema: 'public', table: TABLES.PEDIDOS },
         () => {
-          console.log('Cambio en pedidos detectado!');
           debouncedReload();
         }
       )
@@ -113,7 +104,6 @@ const setupSupabaseSubscriptions = () => {
         'postgres_changes',
         { event: '*', schema: 'public', table: TABLES.CLIENTES },
         () => {
-          console.log('Cambio en clientes detectado!');
           loadClientesFromSupabase().then(clientes => {
             if (clientes.length > 0) {
               localStorage.setItem(STORAGE_KEYS.clientes, JSON.stringify(clientes));
@@ -124,9 +114,8 @@ const setupSupabaseSubscriptions = () => {
       .subscribe();
 
     subscriptionsSetup = true;
-    console.log('Suscripciones a Supabase configuradas');
   } catch (e) {
-    console.error('Error configurando suscripciones:', e);
+    console.error('Error configuring Supabase subscriptions:', e);
   }
 };
 
@@ -140,23 +129,17 @@ const STORAGE_KEYS = {
 
 // Verificar conexión a Supabase
 const checkSupabaseConnection = async (): Promise<boolean> => {
+  if (supabaseConnected) return supabaseConnected;
+  
   try {
-    // Intentar hacer una consulta simple
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from(TABLES.PRODUCTOS)
-      .select('id, nombre')
-      .limit(5);
+      .select('id')
+      .limit(1);
     
-    if (error) {
-      console.log('Supabase connection FAILED:', error.message);
-      supabaseConnected = false;
-    } else {
-      supabaseConnected = true;
-      console.log('Supabase connection: OK', data?.length || 0, 'productos encontrados');
-    }
+    supabaseConnected = !error;
     return supabaseConnected;
-  } catch (e: any) {
-    console.log('Supabase connection ERROR:', e?.message || e);
+  } catch (e) {
     supabaseConnected = false;
     return false;
   }
@@ -164,14 +147,10 @@ const checkSupabaseConnection = async (): Promise<boolean> => {
 
 // Sincronizar producto a Supabase
 const syncProductoToSupabase = async (producto: Producto): Promise<void> => {
-  if (!supabaseConnected) {
-    console.log('Supabase not connected, skipping sync producto');
-    return;
-  }
+  if (!supabaseConnected) return;
   
   try {
-    console.log('Syncing producto to Supabase:', producto.nombre);
-    const { error } = await supabase
+    await supabase
       .from(TABLES.PRODUCTOS)
       .upsert({
         id: producto.id,
@@ -188,27 +167,17 @@ const syncProductoToSupabase = async (producto: Producto): Promise<void> => {
         activo: producto.activo,
         updated_at: new Date().toISOString()
       }, { onConflict: 'id' });
-
-    if (error) {
-      console.error('Error syncing producto to Supabase:', error);
-    } else {
-      console.log('Producto synced to Supabase:', producto.nombre);
-    }
   } catch (e) {
-    console.error('Exception syncing producto:', e);
+    // Silently fail
   }
 };
 
 // Sincronizar pedido a Supabase
 const syncPedidoToSupabase = async (pedido: Pedido): Promise<void> => {
-  if (!supabaseConnected) {
-    console.log('Supabase not connected, skipping sync pedido');
-    return;
-  }
+  if (!supabaseConnected) return;
   
   try {
-    console.log('Syncing pedido to Supabase:', pedido.id, pedido.cliente_nombre);
-    const { error } = await supabase
+    await supabase
       .from(TABLES.PEDIDOS)
       .upsert({
         id: pedido.id,
@@ -223,32 +192,18 @@ const syncPedidoToSupabase = async (pedido: Pedido): Promise<void> => {
         total: pedido.total,
         notas: pedido.notas
       }, { onConflict: 'id' });
-
-    if (error) {
-      console.error('Error syncing pedido to Supabase:', error);
-    } else {
-      console.log('Pedido synced to Supabase:', pedido.id);
-    }
   } catch (e) {
-    console.error('Exception syncing pedido:', e);
+    // Silently fail
   }
 };
 
 // Eliminar pedido de Supabase
 const deletePedidoFromSupabase = async (pedidoId: number): Promise<void> => {
   if (!supabaseConnected) return;
-  
   try {
-    const { error } = await supabase
-      .from(TABLES.PEDIDOS)
-      .delete()
-      .eq('id', pedidoId);
-
-    if (error) {
-      console.error('Error deleting pedido from Supabase:', error);
-    }
+    await supabase.from(TABLES.PEDIDOS).delete().eq('id', pedidoId);
   } catch (e) {
-    console.error('Exception deleting pedido:', e);
+    // Silently fail
   }
 };
 
@@ -265,14 +220,10 @@ interface ClienteFidelidad {
 }
 
 const syncClienteToSupabase = async (cliente: ClienteFidelidad): Promise<void> => {
-  if (!supabaseConnected) {
-    console.log('Supabase not connected, skipping sync cliente');
-    return;
-  }
+  if (!supabaseConnected) return;
   
   try {
-    console.log('Syncing cliente to Supabase:', cliente.nombre, cliente.telefono);
-    const { error } = await supabase
+    await supabase
       .from(TABLES.CLIENTES)
       .upsert({
         id: cliente.id,
@@ -284,45 +235,29 @@ const syncClienteToSupabase = async (cliente: ClienteFidelidad): Promise<void> =
         compras: cliente.compras,
         created_at: cliente.created_at
       }, { onConflict: 'id' });
-
-    if (error) {
-      console.error('Error syncing cliente to Supabase:', error);
-    } else {
-      console.log('Cliente synced to Supabase:', cliente.nombre);
-    }
   } catch (e) {
-    console.error('Exception syncing cliente:', e);
+    // Silently fail
   }
 };
 
 // Cargar clientes de Supabase
 const loadClientesFromSupabase = async (): Promise<ClienteFidelidad[]> => {
-  if (!supabaseConnected) {
-    return [];
-  }
+  if (!supabaseConnected) return [];
 
   try {
-    console.log('Loading clientes from Supabase...');
     const { data, error } = await supabase
       .from(TABLES.CLIENTES)
       .select('*')
       .order('compras', { ascending: false });
 
-    if (error) {
-      console.error('Error loading clientes from Supabase:', error);
-      return [];
-    }
+    if (error) return [];
 
-    console.log('Loaded clientes from Supabase:', data?.length || 0);
-    
     if (data && data.length > 0) {
-      // Guardar en localStorage como backup
       localStorage.setItem(STORAGE_KEYS.clientes, JSON.stringify(data));
     }
     
     return data || [];
   } catch (e) {
-    console.error('Exception loading clientes from Supabase:', e);
     return [];
   }
 };
@@ -330,13 +265,10 @@ const loadClientesFromSupabase = async (): Promise<ClienteFidelidad[]> => {
 // Cargar datos desde Supabase
 const loadFromSupabase = async (): Promise<{ productos: Producto[], pedidos: Pedido[] }> => {
   if (!supabaseConnected) {
-    console.log('Supabase not connected, skipping load');
     return { productos: [], pedidos: [] };
   }
 
   try {
-    console.log('Loading data from Supabase...');
-    
     // Cargar productos
     const { data: productosData, error: productosError } = await supabase
       .from(TABLES.PRODUCTOS)
@@ -344,23 +276,11 @@ const loadFromSupabase = async (): Promise<{ productos: Producto[], pedidos: Ped
       .eq('activo', true)
       .order('id');
 
-    if (productosError) {
-      console.error('Error loading productos from Supabase:', productosError);
-    } else {
-      console.log('Loaded productos from Supabase:', productosData?.length || 0);
-    }
-
     // Cargar pedidos
     const { data: pedidosData, error: pedidosError } = await supabase
       .from(TABLES.PEDIDOS)
       .select('*')
       .order('id');
-
-    if (pedidosError) {
-      console.error('Error loading pedidos from Supabase:', pedidosError);
-    } else {
-      console.log('Loaded pedidos from Supabase:', pedidosData?.length || 0);
-    }
 
     if (productosError || pedidosError) {
       return { productos: [], pedidos: [] };
@@ -379,7 +299,6 @@ const loadFromSupabase = async (): Promise<{ productos: Producto[], pedidos: Ped
       pedidos: pedidosData || [] 
     };
   } catch (e) {
-    console.error('Exception loading from Supabase:', e);
     return { productos: [], pedidos: [] };
   }
 };
@@ -396,10 +315,9 @@ const saveToStorage = async () => {
       for (const producto of productosDb) {
         await syncProductoToSupabase(producto);
       }
-      console.log('Productos sincronizados a Supabase');
     }
   } catch (e) {
-    console.error('Error guardando en localStorage:', e);
+    // Silently fail
   }
 };
 
@@ -412,33 +330,26 @@ const saveToStorageAsync = async () => {
     
     // Sincronizar a Supabase si está conectado
     if (supabaseConnected) {
-      // Sincronizar solo los productos modificados
       for (const producto of productosDb) {
         await syncProductoToSupabase(producto);
       }
-      // Sincronizar solo los pedidos modificados
       for (const pedido of pedidosDb) {
         await syncPedidoToSupabase(pedido);
       }
       
-      // Sincronizar clientes de fidelidad
       const clientes = localStorage.getItem(STORAGE_KEYS.clientes);
       if (clientes) {
         const clientesData = JSON.parse(clientes);
         for (const cliente of clientesData) {
           await syncClienteToSupabase(cliente);
         }
-        console.log('Clientes de fidelidad sincronizados a Supabase');
       }
-      
-      console.log('Datos sincronizados a Supabase');
     }
     
-    // Notificar callbacks de cambio
     productoCallbacks.forEach(cb => cb());
     pedidoCallbacks.forEach(cb => cb());
   } catch (e) {
-    console.error('Error guardando en localStorage:', e);
+    // Silently fail
   }
 };
 
@@ -455,26 +366,22 @@ const loadData = async (forceReload = false) => {
   if (storedProductos && storedPedidos) {
     productosDb = JSON.parse(storedProductos);
     pedidosDb = JSON.parse(storedPedidos);
-    console.log('Datos cargados desde localStorage (prioritario):', productosDb.length, 'productos,', pedidosDb.length, 'pedidos');
     
-    // Actualizar IDs
     nextProductoId = (productosDb.length > 0 ? Math.max(...productosDb.map(p => p.id)) : 0) + 1;
     nextPedidoId = (pedidosDb.length > 0 ? Math.max(...pedidosDb.map(p => p.id)) : 0) + 1;
     
     dataLoaded = true;
     
-    // Luego intentar sincronizar con Supabase en background
+    // Sincronizar con Supabase en background
     await checkSupabaseConnection();
     if (supabaseConnected) {
       setupSupabaseSubscriptions();
-      // Sincronizar datos locales a Supabase
       for (const producto of productosDb) {
         await syncProductoToSupabase(producto);
       }
       for (const pedido of pedidosDb) {
         await syncPedidoToSupabase(pedido);
       }
-      console.log('Datos sincronizados a Supabase');
     }
     return;
   }
@@ -488,62 +395,49 @@ const loadData = async (forceReload = false) => {
     setupSupabaseSubscriptions();
     
     if (supabaseConnected) {
-      // Intentar cargar desde Supabase
       const supabaseData = await loadFromSupabase();
       
       if (supabaseData.productos.length > 0 || supabaseData.pedidos.length > 0) {
         productosDb = supabaseData.productos;
         pedidosDb = supabaseData.pedidos;
-        console.log('Datos cargados desde Supabase:', productosDb.length, 'productos,', pedidosDb.length, 'pedidos');
         
-        // También cargar clientes de Supabase
         const clientesData = await loadClientesFromSupabase();
         if (clientesData.length > 0) {
           localStorage.setItem(STORAGE_KEYS.clientes, JSON.stringify(clientesData));
-          console.log('Clientes cargados desde Supabase:', clientesData.length);
         }
       } else {
-        // Si Supabase está conectado pero no hay datos, cargar desde localStorage
         const storedProductos = localStorage.getItem(STORAGE_KEYS.productos);
         const storedPedidos = localStorage.getItem(STORAGE_KEYS.pedidos);
         
         if (storedProductos && storedPedidos) {
           productosDb = JSON.parse(storedProductos);
           pedidosDb = JSON.parse(storedPedidos);
-          console.log('Datos cargados desde localStorage:', productosDb.length, 'productos');
           
-          // Sincronizar a Supabase
           for (const producto of productosDb) {
             await syncProductoToSupabase(producto);
           }
           for (const pedido of pedidosDb) {
             await syncPedidoToSupabase(pedido);
           }
-          console.log('Datos sincronizados a Supabase');
         } else {
-          // Cargar desde JSON original
           const response = await fetch('/data/productos.json');
           const data = await response.json() as { productos: Producto[]; pedidos: Pedido[] };
           productosDb = data.productos || [];
           pedidosDb = data.pedidos || [];
           saveToStorage();
-          console.log('Datos cargados desde JSON:', productosDb.length, 'productos');
           
-          // Sincronizar a Supabase
           for (const producto of productosDb) {
             await syncProductoToSupabase(producto);
           }
         }
       }
     } else {
-      // Sin conexión a Supabase, usar localStorage
       const storedProductos = localStorage.getItem(STORAGE_KEYS.productos);
       const storedPedidos = localStorage.getItem(STORAGE_KEYS.pedidos);
       
       if (storedProductos && storedPedidos) {
         productosDb = JSON.parse(storedProductos);
         pedidosDb = JSON.parse(storedPedidos);
-        console.log('Datos cargados desde localStorage (Sin Supabase):', productosDb.length, 'productos');
       } else {
         // Cargar desde JSON original
         const response = await fetch('/data/productos.json');
@@ -551,7 +445,6 @@ const loadData = async (forceReload = false) => {
         productosDb = data.productos || [];
         pedidosDb = data.pedidos || [];
         saveToStorage();
-        console.log('Datos cargados desde JSON:', productosDb.length, 'productos');
       }
     }
     
@@ -559,7 +452,6 @@ const loadData = async (forceReload = false) => {
     nextPedidoId = (pedidosDb.length > 0 ? Math.max(...pedidosDb.map(p => p.id)) : 0) + 1;
     dataLoaded = true;
   } catch (error) {
-    console.error('Error loading data:', error);
     productosDb = [];
     pedidosDb = [];
     dataLoaded = true;
@@ -837,11 +729,7 @@ export function useApi() {
   // Pedidos
   const getPedidos = useCallback(async (): Promise<ApiResponse<Pedido[]>> => {
     setIsLoading(true);
-    console.log('=== getPedidos called ===');
-    // Forzar recarga para obtener los pedidos más recientes
-    await loadData(true); // true = forzar recarga
-    console.log('=== getPedidos returning, pedidosDb length:', pedidosDb.length);
-    console.log('=== getPedidos returning, pedidosDb:', JSON.stringify(pedidosDb.map(p => ({id: p.id, cliente: p.cliente_nombre, estado: p.estado}))));
+    await loadData(true);
     await new Promise(r => setTimeout(r, 300));
     setIsLoading(false);
     return { success: true, data: [...pedidosDb] };
@@ -1009,7 +897,6 @@ export function useApi() {
       for (const producto of productosDb) {
         await syncProductoToSupabase(producto);
       }
-      console.log('Catálogo sincronizado a Supabase');
     }
     
     setIsLoading(false);
