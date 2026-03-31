@@ -81,6 +81,23 @@ const setupSupabaseSubscriptions = () => {
       )
       .subscribe();
 
+    // Suscripción a clientes de fidelidad
+    supabase
+      .channel('clientes-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: TABLES.CLIENTES },
+        () => {
+          console.log('Cambio en clientes detectado!');
+          loadClientesFromSupabase().then(clientes => {
+            if (clientes.length > 0) {
+              localStorage.setItem(STORAGE_KEYS.clientes, JSON.stringify(clientes));
+            }
+          });
+        }
+      )
+      .subscribe();
+
     subscriptionsSetup = true;
     console.log('Suscripciones a Supabase configuradas');
   } catch (e) {
@@ -210,6 +227,81 @@ const deletePedidoFromSupabase = async (pedidoId: number): Promise<void> => {
   }
 };
 
+// Sincronizar cliente de fidelidad a Supabase
+interface ClienteFidelidad {
+  id: number;
+  nombre: string;
+  telefono: string;
+  direccion: string;
+  referencias: string;
+  ultimo_metodo_pago: string;
+  compras: number;
+  created_at: string;
+}
+
+const syncClienteToSupabase = async (cliente: ClienteFidelidad): Promise<void> => {
+  if (!supabaseConnected) {
+    console.log('Supabase not connected, skipping sync cliente');
+    return;
+  }
+  
+  try {
+    console.log('Syncing cliente to Supabase:', cliente.nombre, cliente.telefono);
+    const { error } = await supabase
+      .from(TABLES.CLIENTES)
+      .upsert({
+        id: cliente.id,
+        nombre: cliente.nombre,
+        telefono: cliente.telefono,
+        direccion: cliente.direccion || '',
+        referencias: cliente.referencias || '',
+        ultimo_metodo_pago: cliente.ultimo_metodo_pago || '',
+        compras: cliente.compras,
+        created_at: cliente.created_at
+      }, { onConflict: 'id' });
+
+    if (error) {
+      console.error('Error syncing cliente to Supabase:', error);
+    } else {
+      console.log('Cliente synced to Supabase:', cliente.nombre);
+    }
+  } catch (e) {
+    console.error('Exception syncing cliente:', e);
+  }
+};
+
+// Cargar clientes de Supabase
+const loadClientesFromSupabase = async (): Promise<ClienteFidelidad[]> => {
+  if (!supabaseConnected) {
+    return [];
+  }
+
+  try {
+    console.log('Loading clientes from Supabase...');
+    const { data, error } = await supabase
+      .from(TABLES.CLIENTES)
+      .select('*')
+      .order('compras', { ascending: false });
+
+    if (error) {
+      console.error('Error loading clientes from Supabase:', error);
+      return [];
+    }
+
+    console.log('Loaded clientes from Supabase:', data?.length || 0);
+    
+    if (data && data.length > 0) {
+      // Guardar en localStorage como backup
+      localStorage.setItem(STORAGE_KEYS.clientes, JSON.stringify(data));
+    }
+    
+    return data || [];
+  } catch (e) {
+    console.error('Exception loading clientes from Supabase:', e);
+    return [];
+  }
+};
+
 // Cargar datos desde Supabase
 const loadFromSupabase = async (): Promise<{ productos: Producto[], pedidos: Pedido[] }> => {
   if (!supabaseConnected) {
@@ -295,14 +387,31 @@ const saveToStorageAsync = async () => {
     
     // Sincronizar a Supabase si está conectado
     if (supabaseConnected) {
+      // Sincronizar solo los productos modificados
       for (const producto of productosDb) {
         await syncProductoToSupabase(producto);
       }
+      // Sincronizar solo los pedidos modificados
       for (const pedido of pedidosDb) {
         await syncPedidoToSupabase(pedido);
       }
+      
+      // Sincronizar clientes de fidelidad
+      const clientes = localStorage.getItem(STORAGE_KEYS.clientes);
+      if (clientes) {
+        const clientesData = JSON.parse(clientes);
+        for (const cliente of clientesData) {
+          await syncClienteToSupabase(cliente);
+        }
+        console.log('Clientes de fidelidad sincronizados a Supabase');
+      }
+      
       console.log('Datos sincronizados a Supabase');
     }
+    
+    // Notificar callbacks de cambio
+    productoCallbacks.forEach(cb => cb());
+    pedidoCallbacks.forEach(cb => cb());
   } catch (e) {
     console.error('Error guardando en localStorage:', e);
   }
@@ -327,6 +436,13 @@ const loadData = async () => {
         productosDb = supabaseData.productos;
         pedidosDb = supabaseData.pedidos;
         console.log('Datos cargados desde Supabase:', productosDb.length, 'productos,', pedidosDb.length, 'pedidos');
+        
+        // También cargar clientes de Supabase
+        const clientesData = await loadClientesFromSupabase();
+        if (clientesData.length > 0) {
+          localStorage.setItem(STORAGE_KEYS.clientes, JSON.stringify(clientesData));
+          console.log('Clientes cargados desde Supabase:', clientesData.length);
+        }
       } else {
         // Si Supabase está conectado pero no hay datos, cargar desde localStorage
         const storedProductos = localStorage.getItem(STORAGE_KEYS.productos);
@@ -883,6 +999,61 @@ export function useApi() {
     return supabaseConnected;
   }, []);
 
+  // Obtener clientes de fidelidad (desde Supabase o localStorage)
+  const getClientes = useCallback(async (): Promise<ClienteFidelidad[]> => {
+    await loadData();
+    
+    // Intentar cargar desde Supabase
+    if (supabaseConnected) {
+      const clientesFromSupabase = await loadClientesFromSupabase();
+      if (clientesFromSupabase.length > 0) {
+        return clientesFromSupabase;
+      }
+    }
+    
+    // Fallback a localStorage
+    const stored = localStorage.getItem(STORAGE_KEYS.clientes);
+    return stored ? JSON.parse(stored) : [];
+  }, []);
+
+  // Guardar cliente (actualiza localStorage y sincroniza a Supabase)
+  const saveCliente = useCallback(async (cliente: ClienteFidelidad): Promise<void> => {
+    const stored = localStorage.getItem(STORAGE_KEYS.clientes);
+    let clientes: ClienteFidelidad[] = stored ? JSON.parse(stored) : [];
+    
+    const index = clientes.findIndex(c => c.id === cliente.id);
+    if (index !== -1) {
+      clientes[index] = cliente;
+    } else {
+      clientes.push(cliente);
+    }
+    
+    localStorage.setItem(STORAGE_KEYS.clientes, JSON.stringify(clientes));
+    
+    // Sincronizar a Supabase
+    if (supabaseConnected) {
+      await syncClienteToSupabase(cliente);
+    }
+  }, []);
+
+  // Eliminar cliente
+  const deleteCliente = useCallback(async (clienteId: number): Promise<void> => {
+    const stored = localStorage.getItem(STORAGE_KEYS.clientes);
+    let clientes: ClienteFidelidad[] = stored ? JSON.parse(stored) : [];
+    
+    clientes = clientes.filter(c => c.id !== clienteId);
+    localStorage.setItem(STORAGE_KEYS.clientes, JSON.stringify(clientes));
+    
+    // Eliminar de Supabase
+    if (supabaseConnected) {
+      try {
+        await supabase.from(TABLES.CLIENTES).delete().eq('id', clienteId);
+      } catch (e) {
+        console.error('Error deleting cliente from Supabase:', e);
+      }
+    }
+  }, []);
+
   return {
     isLoading,
     getStats,
@@ -902,6 +1073,9 @@ export function useApi() {
     subscribeToProductoChanges,
     subscribeToPedidoChanges,
     refreshData,
-    isSupabaseConnected
+    isSupabaseConnected,
+    getClientes,
+    saveCliente,
+    deleteCliente
   };
 }
