@@ -17,7 +17,14 @@ const STORAGE_KEYS = {
   lastSync: 'topstore_last_sync'
 };
 
-// Función simple de carga
+// Guardar en localStorage
+const saveToLocal = () => {
+  localStorage.setItem(STORAGE_KEYS.productos, JSON.stringify(productosDb));
+  localStorage.setItem(STORAGE_KEYS.pedidos, JSON.stringify(pedidosDb));
+  localStorage.setItem(STORAGE_KEYS.lastSync, new Date().toISOString());
+};
+
+// Cargar desde localStorage
 const loadFromLocal = () => {
   const storedP = localStorage.getItem(STORAGE_KEYS.productos);
   const storedO = localStorage.getItem(STORAGE_KEYS.pedidos);
@@ -32,7 +39,33 @@ const loadFromLocal = () => {
   return false;
 };
 
-// Sync simple a Supabase (sin espera)
+// Cargar desde Supabase cuando no hay localStorage
+const loadFromSupabaseAndSave = async () => {
+  try {
+    const { data: productosData } = await supabase.from(TABLES.PRODUCTOS).select('*').eq('activo', true).order('id');
+    const { data: pedidosData } = await supabase.from(TABLES.PEDIDOS).select('*').order('id');
+    
+    if (productosData && productosData.length > 0) {
+      productosDb = productosData;
+      nextProductoId = (productosDb.length ? Math.max(...productosDb.map(p => p.id)) : 0) + 1;
+    }
+    
+    if (pedidosData && pedidosData.length > 0) {
+      pedidosDb = pedidosData;
+      nextPedidoId = (pedidosDb.length ? Math.max(...pedidosDb.map(p => p.id)) : 0) + 1;
+    }
+    
+    // GUARDAR en localStorage después de cargar de Supabase
+    saveToLocal();
+    console.log('Datos cargados desde Supabase y guardados en localStorage');
+    return true;
+  } catch (e) {
+    console.error('Error loading from Supabase:', e);
+    return false;
+  }
+};
+
+// Sync a Supabase (sin espera)
 const syncToSupabase = async () => {
   if (!supabaseConnected) return;
   try {
@@ -45,7 +78,7 @@ const syncToSupabase = async () => {
   } catch (e) { /* ignore */ }
 };
 
-// Check conexión (solo una vez)
+// Check conexión
 const checkConnection = async () => {
   if (supabaseConnected) return;
   try {
@@ -54,13 +87,40 @@ const checkConnection = async () => {
   } catch (e) { supabaseConnected = false; }
 };
 
+// Cargar datos iniciales - PRIORIDAD: localStorage > Supabase > JSON
+const loadInitialData = async () => {
+  // 1. Primero intentar localStorage
+  if (loadFromLocal()) {
+    return;
+  }
+  
+  // 2. Si no hay localStorage, intentar Supabase
+  await checkConnection();
+  if (supabaseConnected) {
+    if (await loadFromSupabaseAndSave()) {
+      return;
+    }
+  }
+  
+  // 3. Si nada funciona, cargar desde JSON
+  try {
+    const response = await fetch('/data/productos.json');
+    const data = await response.json() as { productos: Producto[]; pedidos: Pedido[] };
+    productosDb = data.productos || [];
+    pedidosDb = data.pedidos || [];
+    saveToLocal();
+    console.log('Datos cargados desde JSON');
+  } catch (e) {
+    console.error('Error loading from JSON:', e);
+  }
+};
+
 export function useApi() {
   const [isLoading, setIsLoading] = useState(false);
 
   const getStats = useCallback(async (): Promise<ApiResponse<DashboardStats>> => {
     setIsLoading(true);
-    loadFromLocal();
-    await checkConnection();
+    await loadInitialData();
     
     const activos = productosDb.filter(p => p.activo);
     const stats: DashboardStats = {
@@ -77,15 +137,14 @@ export function useApi() {
 
   const getProductos = useCallback(async (): Promise<ApiResponse<Producto[]>> => {
     setIsLoading(true);
-    loadFromLocal();
-    await checkConnection();
+    await loadInitialData();
     setIsLoading(false);
     return { success: true, data: productosDb.filter(p => p.activo) };
   }, []);
 
   const createProducto = useCallback(async (req: CreateProductoRequest): Promise<ApiResponse<Producto>> => {
     setIsLoading(true);
-    loadFromLocal();
+    await loadInitialData();
     
     const nuevo: Producto = {
       id: nextProductoId++,
@@ -96,7 +155,7 @@ export function useApi() {
     };
     
     productosDb.push(nuevo);
-    localStorage.setItem(STORAGE_KEYS.productos, JSON.stringify(productosDb));
+    saveToLocal();
     syncToSupabase();
     
     setIsLoading(false);
@@ -105,7 +164,7 @@ export function useApi() {
 
   const updateProducto = useCallback(async (id: number, req: UpdateProductoRequest): Promise<ApiResponse<Producto>> => {
     setIsLoading(true);
-    loadFromLocal();
+    await loadInitialData();
     
     const idx = productosDb.findIndex(p => p.id === id);
     if (idx === -1) {
@@ -114,7 +173,7 @@ export function useApi() {
     }
     
     productosDb[idx] = { ...productosDb[idx], ...req, updated_at: new Date().toISOString() };
-    localStorage.setItem(STORAGE_KEYS.productos, JSON.stringify(productosDb));
+    saveToLocal();
     syncToSupabase();
     
     setIsLoading(false);
@@ -123,7 +182,7 @@ export function useApi() {
 
   const deleteProducto = useCallback(async (id: number): Promise<ApiResponse<void>> => {
     setIsLoading(true);
-    loadFromLocal();
+    await loadInitialData();
     
     const idx = productosDb.findIndex(p => p.id === id);
     if (idx === -1) {
@@ -133,7 +192,7 @@ export function useApi() {
     
     productosDb[idx].activo = false;
     productosDb[idx].updated_at = new Date().toISOString();
-    localStorage.setItem(STORAGE_KEYS.productos, JSON.stringify(productosDb));
+    saveToLocal();
     syncToSupabase();
     
     setIsLoading(false);
@@ -142,15 +201,14 @@ export function useApi() {
 
   const getPedidos = useCallback(async (): Promise<ApiResponse<Pedido[]>> => {
     setIsLoading(true);
-    loadFromLocal();
-    await checkConnection();
+    await loadInitialData();
     setIsLoading(false);
     return { success: true, data: [...pedidosDb] };
   }, []);
 
   const createPedido = useCallback(async (req: CreatePedidoRequest): Promise<ApiResponse<Pedido>> => {
     setIsLoading(true);
-    loadFromLocal();
+    await loadInitialData();
     
     if (!req.cliente_nombre || !req.cliente_telefono || req.items.length === 0) {
       setIsLoading(false);
@@ -175,7 +233,7 @@ export function useApi() {
     
     pedidosDb.push(nuevo);
     
-    // Fidelidad - actualizar cliente
+    // Fidelidad
     const FIDELIDAD_KEY = 'topstore_clientes_fidelidad';
     let clientes: any[] = [];
     const stored = localStorage.getItem(FIDELIDAD_KEY);
@@ -210,8 +268,7 @@ export function useApi() {
       }
     });
     
-    localStorage.setItem(STORAGE_KEYS.productos, JSON.stringify(productosDb));
-    localStorage.setItem(STORAGE_KEYS.pedidos, JSON.stringify(pedidosDb));
+    saveToLocal();
     syncToSupabase();
     
     setIsLoading(false);
@@ -220,7 +277,7 @@ export function useApi() {
 
   const updatePedidoEstado = useCallback(async (id: number, estado: string): Promise<ApiResponse<Pedido>> => {
     setIsLoading(true);
-    loadFromLocal();
+    await loadInitialData();
     
     const idx = pedidosDb.findIndex(p => p.id === id);
     if (idx === -1) {
@@ -229,7 +286,7 @@ export function useApi() {
     }
     
     pedidosDb[idx].estado = estado as Pedido['estado'];
-    localStorage.setItem(STORAGE_KEYS.pedidos, JSON.stringify(pedidosDb));
+    saveToLocal();
     syncToSupabase();
     
     setIsLoading(false);
@@ -238,7 +295,7 @@ export function useApi() {
 
   const deletePedido = useCallback(async (id: number): Promise<ApiResponse<void>> => {
     setIsLoading(true);
-    loadFromLocal();
+    await loadInitialData();
     
     const idx = pedidosDb.findIndex(p => p.id === id);
     if (idx === -1) {
@@ -250,7 +307,7 @@ export function useApi() {
     pedidosDb.forEach((p, i) => p.id = i + 1);
     nextPedidoId = pedidosDb.length + 1;
     
-    localStorage.setItem(STORAGE_KEYS.pedidos, JSON.stringify(pedidosDb));
+    saveToLocal();
     if (supabaseConnected) {
       await supabase.from(TABLES.PEDIDOS).delete().eq('id', id);
     }
@@ -296,6 +353,7 @@ export function useApi() {
   }, []);
 
   const getLastSync = useCallback(() => localStorage.getItem(STORAGE_KEYS.lastSync), []);
+  
   const resetData = useCallback(() => {
     localStorage.removeItem(STORAGE_KEYS.productos);
     localStorage.removeItem(STORAGE_KEYS.pedidos);
@@ -355,8 +413,8 @@ export function useApi() {
       
       productosDb.forEach(p => { if (!catalogIds.includes(p.product_id) && p.activo) { p.activo = false; p.updated_at = new Date().toISOString(); removed++; } });
       
-      localStorage.setItem(STORAGE_KEYS.productos, JSON.stringify(productosDb));
-      localStorage.setItem(STORAGE_KEYS.lastSync, new Date().toISOString());
+      // IMPORTANTE: Guardar en localStorage después de sincronizar
+      saveToLocal();
       syncToSupabase();
     } catch (e) { errors.push(`Conexión: ${e}`); }
     
