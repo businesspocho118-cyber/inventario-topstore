@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import type { ApiResponse, Producto, Pedido, DashboardStats, CreateProductoRequest, UpdateProductoRequest, CreatePedidoRequest } from '../types';
 import { supabase, TABLES } from '../supabase/config';
 
@@ -78,6 +78,45 @@ const syncToSupabase = async () => {
   } catch (e) { /* ignore */ }
 };
 
+// Suscripciones para sync en tiempo real entre dispositivos
+let subscriptionsSetup = false;
+
+const setupRealtimeSubscriptions = (onDataChange: () => void) => {
+  if (subscriptionsSetup || !supabaseConnected) return;
+  
+  try {
+    // Suscribirse a cambios en productos
+    supabase.channel('productos-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: TABLES.PRODUCTOS }, async () => {
+        // Cuando hay cambio en Supabase, recargar datos
+        await loadFromSupabaseAndSave();
+        onDataChange();
+      })
+      .subscribe();
+
+    // Suscribirse a cambios en pedidos
+    supabase.channel('pedidos-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: TABLES.PEDIDOS }, async () => {
+        await loadFromSupabaseAndSave();
+        onDataChange();
+      })
+      .subscribe();
+
+    // Suscribirse a cambios en clientes
+    supabase.channel('clientes-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: TABLES.CLIENTES }, async () => {
+        const { data } = await supabase.from(TABLES.CLIENTES).select('*');
+        if (data) {
+          localStorage.setItem(STORAGE_KEYS.clientes, JSON.stringify(data));
+          onDataChange();
+        }
+      })
+      .subscribe();
+
+    subscriptionsSetup = true;
+  } catch (e) { /* ignore */ }
+};
+
 // Check conexión
 const checkConnection = async () => {
   if (supabaseConnected) return;
@@ -117,6 +156,28 @@ const loadInitialData = async () => {
 
 export function useApi() {
   const [isLoading, setIsLoading] = useState(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  // Efecto para configurar suscripciones en tiempo real (solo una vez)
+  useEffect(() => {
+    const setupSubscriptions = async () => {
+      await checkConnection();
+      if (supabaseConnected) {
+        setupRealtimeSubscriptions(() => {
+          // Cuando hay cambio en Supabase, actualizar el estado para re-render
+          setRefreshTrigger(t => t + 1);
+        });
+      }
+    };
+    setupSubscriptions();
+  }, []);
+
+  // Cuando refreshTrigger cambia, recargar datos
+  useEffect(() => {
+    if (refreshTrigger > 0) {
+      loadFromLocal();
+    }
+  }, [refreshTrigger]);
 
   const getStats = useCallback(async (): Promise<ApiResponse<DashboardStats>> => {
     setIsLoading(true);
