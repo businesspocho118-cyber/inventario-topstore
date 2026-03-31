@@ -113,7 +113,8 @@ const setupRealtimeSubscriptions = (onDataChange: () => void) => {
 
     // Suscribirse a cambios en pedidos
     supabase.channel('pedidos-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: TABLES.PEDIDOS }, async () => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: TABLES.PEDIDOS }, async (payload) => {
+        console.log('Cambio en pedidos detectado:', payload.eventType);
         await loadFromSupabaseAndSave();
         onDataChange();
       })
@@ -297,7 +298,7 @@ export function useApi() {
     const total = req.items.reduce((sum, item) => sum + (item.cantidad * item.precio_unitario), 0);
     
     const nuevo: Pedido = {
-      id: nextPedidoId++,
+      id: Date.now() + Math.floor(Math.random() * 1000), // ID único basado en timestamp
       fecha: new Date().toISOString(),
       cliente_nombre: req.cliente_nombre,
       cliente_telefono: req.cliente_telefono,
@@ -388,14 +389,18 @@ export function useApi() {
       return { success: false, error: 'Pedido no encontrado' };
     }
     
-    // Primero eliminar de Supabase (con el ID original)
+    console.log('Eliminando pedido con ID:', id);
+    
+    // Primero eliminar de Supabase
     if (supabaseConnected) {
-      await supabase.from(TABLES.PEDIDOS).delete().eq('id', id);
+      const { error } = await supabase.from(TABLES.PEDIDOS).delete().eq('id', id);
+      console.log('Resultado eliminación Supabase:', error ? 'Error: ' + error.message : 'OK');
+    } else {
+      console.log('No hay conexión a Supabase para eliminar');
     }
     
     // Luego eliminar localmente
     pedidosDb.splice(idx, 1);
-    
     saveToLocal();
     
     setIsLoading(false);
