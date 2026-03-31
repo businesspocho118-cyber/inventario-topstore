@@ -65,16 +65,19 @@ const loadFromSupabaseAndSave = async () => {
   }
 };
 
-// Sync a Supabase (sin espera)
-const syncToSupabase = async () => {
+// Sync a Supabase (sin espera) - solo el producto específico
+const syncOneProductoToSupabase = async (producto: Producto) => {
   if (!supabaseConnected) return;
   try {
-    for (const p of productosDb) {
-      await supabase.from(TABLES.PRODUCTOS).upsert({ ...p, updated_at: new Date().toISOString() }, { onConflict: 'id' });
-    }
-    for (const o of pedidosDb) {
-      await supabase.from(TABLES.PEDIDOS).upsert(o, { onConflict: 'id' });
-    }
+    await supabase.from(TABLES.PRODUCTOS).upsert({ ...producto, updated_at: new Date().toISOString() }, { onConflict: 'id' });
+  } catch (e) { /* ignore */ }
+};
+
+// Sync a Supabase - solo el pedido específico
+const syncOnePedidoToSupabase = async (pedido: Pedido) => {
+  if (!supabaseConnected) return;
+  try {
+    await supabase.from(TABLES.PEDIDOS).upsert(pedido, { onConflict: 'id' });
   } catch (e) { /* ignore */ }
 };
 
@@ -217,7 +220,7 @@ export function useApi() {
     
     productosDb.push(nuevo);
     saveToLocal();
-    syncToSupabase();
+    syncOneProductoToSupabase(nuevo);
     
     setIsLoading(false);
     return { success: true, data: nuevo };
@@ -235,7 +238,7 @@ export function useApi() {
     
     productosDb[idx] = { ...productosDb[idx], ...req, updated_at: new Date().toISOString() };
     saveToLocal();
-    syncToSupabase();
+    syncOneProductoToSupabase(productosDb[idx]);
     
     setIsLoading(false);
     return { success: true, data: productosDb[idx] };
@@ -254,7 +257,7 @@ export function useApi() {
     productosDb[idx].activo = false;
     productosDb[idx].updated_at = new Date().toISOString();
     saveToLocal();
-    syncToSupabase();
+    syncOneProductoToSupabase(productosDb[idx]);
     
     setIsLoading(false);
     return { success: true };
@@ -317,7 +320,7 @@ export function useApi() {
     }
     localStorage.setItem(FIDELIDAD_KEY, JSON.stringify(clientes));
     
-    // Reducir stock
+    // Reducir stock y sincronizar cada producto
     req.items.forEach(item => {
       const p = productosDb.find(p => p.id === item.producto_id);
       if (p) {
@@ -326,11 +329,12 @@ export function useApi() {
           p.stock_por_color[item.color] = Math.max(0, (p.stock_por_color[item.color] || 0) - item.cantidad);
         }
         p.updated_at = new Date().toISOString();
+        syncOneProductoToSupabase(p);
       }
     });
     
     saveToLocal();
-    syncToSupabase();
+    syncOnePedidoToSupabase(nuevo);
     
     setIsLoading(false);
     return { success: true, data: nuevo };
@@ -348,7 +352,7 @@ export function useApi() {
     
     pedidosDb[idx].estado = estado as Pedido['estado'];
     saveToLocal();
-    syncToSupabase();
+    syncOneProductoToSupabase(productosDb[idx]);
     
     setIsLoading(false);
     return { success: true, data: pedidosDb[idx] };
@@ -472,11 +476,14 @@ export function useApi() {
         } catch (e) { errors.push(`Error: ${e}`); }
       });
       
-      productosDb.forEach(p => { if (!catalogIds.includes(p.product_id) && p.activo) { p.activo = false; p.updated_at = new Date().toISOString(); removed++; } });
+      productosDb.forEach(p => { if (!catalogIds.includes(p.product_id) && p.activo) { p.activo = false; p.updated_at = new Date().toISOString(); } });
       
       // IMPORTANTE: Guardar en localStorage después de sincronizar
       saveToLocal();
-      syncToSupabase();
+      // Sync todos los productos a Supabase
+      for (const p of productosDb) {
+        await syncOneProductoToSupabase(p);
+      }
     } catch (e) { errors.push(`Conexión: ${e}`); }
     
     setIsLoading(false);
