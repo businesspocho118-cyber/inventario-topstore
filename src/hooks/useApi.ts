@@ -607,7 +607,7 @@ export function useApi() {
   const getStats = useCallback(async (): Promise<ApiResponse<DashboardStats>> => {
     setIsLoading(true);
     await loadData();
-    await new Promise(r => setTimeout(r, 300));
+    await new Promise(r => setTimeout(r, 100));
     
     const productosActivos = productosDb.filter(p => p.activo);
     const sinStock = productosActivos.filter(p => p.stock === 0).length;
@@ -631,7 +631,7 @@ export function useApi() {
     setIsLoading(true);
     // Forzar recarga para obtener los productos más recientes
     await loadData(true); // true = forzar recarga
-    await new Promise(r => setTimeout(r, 300));
+    await new Promise(r => setTimeout(r, 100));
     const activos = productosDb.filter(p => p.activo);
     setIsLoading(false);
     return { success: true, data: activos };
@@ -640,7 +640,7 @@ export function useApi() {
   const getProducto = useCallback(async (id: number): Promise<ApiResponse<Producto>> => {
     setIsLoading(true);
     await loadData();
-    await new Promise(r => setTimeout(r, 200));
+    await new Promise(r => setTimeout(r, 50));
     const producto = productosDb.find(p => p.id === id);
     setIsLoading(false);
     if (producto) {
@@ -652,7 +652,7 @@ export function useApi() {
   const createProducto = useCallback(async (req: CreateProductoRequest): Promise<ApiResponse<Producto>> => {
     setIsLoading(true);
     await loadData();
-    await new Promise(r => setTimeout(r, 300));
+    await new Promise(r => setTimeout(r, 100));
     
     if (productosDb.some(p => p.product_id === req.product_id)) {
       setIsLoading(false);
@@ -680,7 +680,7 @@ export function useApi() {
   const updateProducto = useCallback(async (id: number, req: UpdateProductoRequest): Promise<ApiResponse<Producto>> => {
     setIsLoading(true);
     await loadData();
-    await new Promise(r => setTimeout(r, 300));
+    await new Promise(r => setTimeout(r, 100));
     
     const index = productosDb.findIndex(p => p.id === id);
     if (index === -1) {
@@ -706,7 +706,7 @@ export function useApi() {
   const deleteProducto = useCallback(async (id: number): Promise<ApiResponse<void>> => {
     setIsLoading(true);
     await loadData();
-    await new Promise(r => setTimeout(r, 300));
+    await new Promise(r => setTimeout(r, 100));
     
     const index = productosDb.findIndex(p => p.id === id);
     if (index === -1) {
@@ -730,7 +730,7 @@ export function useApi() {
   const getPedidos = useCallback(async (): Promise<ApiResponse<Pedido[]>> => {
     setIsLoading(true);
     await loadData(true);
-    await new Promise(r => setTimeout(r, 300));
+    await new Promise(r => setTimeout(r, 100));
     setIsLoading(false);
     return { success: true, data: [...pedidosDb] };
   }, []);
@@ -738,7 +738,7 @@ export function useApi() {
   const getPedido = useCallback(async (id: number): Promise<ApiResponse<Pedido>> => {
     setIsLoading(true);
     await loadData();
-    await new Promise(r => setTimeout(r, 200));
+    await new Promise(r => setTimeout(r, 50));
     const pedido = pedidosDb.find(p => p.id === id);
     setIsLoading(false);
     if (pedido) {
@@ -750,7 +750,7 @@ export function useApi() {
   const createPedido = useCallback(async (req: CreatePedidoRequest): Promise<ApiResponse<Pedido>> => {
     setIsLoading(true);
     await loadData();
-    await new Promise(r => setTimeout(r, 300));
+    await new Promise(r => setTimeout(r, 100));
     
     if (!req.cliente_nombre || !req.cliente_telefono || req.items.length === 0) {
       setIsLoading(false);
@@ -833,7 +833,7 @@ export function useApi() {
   const updatePedidoEstado = useCallback(async (id: number, estado: string): Promise<ApiResponse<Pedido>> => {
     setIsLoading(true);
     await loadData();
-    await new Promise(r => setTimeout(r, 300));
+    await new Promise(r => setTimeout(r, 100));
     
     const index = pedidosDb.findIndex(p => p.id === id);
     if (index === -1) {
@@ -859,7 +859,7 @@ export function useApi() {
   const deletePedido = useCallback(async (id: number): Promise<ApiResponse<void>> => {
     setIsLoading(true);
     await loadData();
-    await new Promise(r => setTimeout(r, 300));
+    await new Promise(r => setTimeout(r, 100));
     
     const index = pedidosDb.findIndex(p => p.id === id);
     if (index === -1) {
