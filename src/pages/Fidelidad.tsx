@@ -49,7 +49,7 @@ export function Fidelidad() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [clienteEditando, setClienteEditando] = useState<any>(null);
 
-  const handleAgregarCompra = async (clienteId: string) => {
+  const handleAgregarCompra = async (clienteId: number) => {
     const cliente = clientes.find(c => c.id === clienteId);
     if (!cliente) return;
     
@@ -60,30 +60,37 @@ export function Fidelidad() {
     }
     
     try {
-      await updateCliente(clienteId, { compras: newCompras });
+      const nuevosClientes = clientes.map(c => 
+        c.id === clienteId ? { ...c, compras: newCompras } : c
+      );
+      saveClientes(nuevosClientes);
     } catch (err) {
       showToast('Error al actualizar compras', 'error');
     }
   };
 
-  const handleUsarDescuento = async (clienteId: string) => {
+  const handleUsarDescuento = async (clienteId: number) => {
     const cliente = clientes.find(c => c.id === clienteId);
     if (!cliente || !tieneDescuento(cliente.compras)) return;
     
     if (!confirm(`¿Aplicar 20% de descuento a ${cliente.nombre}?\nSe resetearán sus compras a 0.`)) return;
     
     try {
-      await updateCliente(clienteId, { compras: 0 });
+      const nuevosClientes = clientes.map(c => 
+        c.id === clienteId ? { ...c, compras: 0 } : c
+      );
+      saveClientes(nuevosClientes);
       showToast(`✅ Descuento de 20% aplicado a ${cliente.nombre}`, 'success');
     } catch (err) {
       showToast('Error al aplicar descuento', 'error');
     }
   };
 
-  const handleEliminarCliente = async (clienteId: string) => {
+  const handleEliminarCliente = async (clienteId: number) => {
     if (!confirm('¿Eliminar este cliente de fidelidad?')) return;
     try {
-      await deleteCliente(clienteId);
+      const nuevosClientes = clientes.filter(c => c.id !== clienteId);
+      saveClientes(nuevosClientes);
       showToast('Cliente eliminado', 'success');
     } catch (err) {
       showToast('Error al eliminar cliente', 'error');
@@ -104,7 +111,10 @@ export function Fidelidad() {
     }
 
     try {
-      await updateCliente(clienteEditando.id, clienteEditando);
+      const nuevosClientes = clientes.map(c => 
+        c.id === clienteEditando.id ? { ...c, ...clienteEditando } : c
+      );
+      saveClientes(nuevosClientes);
       setIsEditModalOpen(false);
       setClienteEditando(null);
       showToast('Cliente actualizado', 'success');
@@ -129,7 +139,7 @@ export function Fidelidad() {
     totalCompras: clientes.reduce((sum, c) => sum + c.compras, 0)
   };
 
-  if (!isReady) {
+  if (isLoading) {
     return <PageLoading />;
   }
 
