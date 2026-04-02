@@ -9,8 +9,7 @@ import type { Producto, CreateProductoRequest, UpdateProductoRequest } from '../
 import styles from './Productos.module.css';
 
 interface FormData extends CreateProductoRequest {
-  stock_por_color?: Record<string, number>;
-  stock_por_talla?: Record<string, number>;
+  unidades: Record<string, number>;
 }
 
 const initialForm: FormData = {
@@ -20,12 +19,10 @@ const initialForm: FormData = {
   precio: '',
   colores: '',
   tallas: '',
-  stock_por_color: {},
-  stock_por_talla: {},
+  unidades: {},
   genero: 'mujeres',
   categoria: '',
-  image_paths: [],
-  stock: 0
+  image_paths: []
 };
 
 export function Productos() {
@@ -362,28 +359,15 @@ export function Productos() {
                 <h3 className={styles.productName}>{producto.nombre}</h3>
                 <p className={styles.precio}>{producto.precio}</p>
                 
-                {/* Mostrar colores si existen */}
-                {producto.colores && (
+                {/* Mostrar colores y tallas disponibles */}
+                {producto.colores && producto.tallas && (
                   <div className={styles.colorCircles}>
-                    {producto.colores.split(', ').map((color, idx) => (
-                      <div key={idx} className={styles.colorItem}>
-                        <ColorCircle color={color} size="sm" />
-                        <span className={styles.colorStock}>
-                          {producto.stock_por_color?.[color] ?? 0}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                
-                {/* Mostrar tallas si existen */}
-                {producto.tallas && (
-                  <div className={styles.tallasList}>
-                    {producto.tallas.split(', ').map((talla, idx) => (
-                      <span key={idx} className={styles.tallaItem}>
-                        {talla}: {producto.stock_por_talla?.[talla] ?? 0}
-                      </span>
-                    ))}
+                    <span className={styles.colorStock}>
+                      {producto.colores.split(', ').length} colores
+                    </span>
+                    <span className={styles.tallaItem}>
+                      {producto.tallas.split(', ').length} tallas
+                    </span>
                   </div>
                 )}
               </div>

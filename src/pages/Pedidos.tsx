@@ -14,19 +14,17 @@ interface ClienteFidelidad {
   compras: number;
 }
 
-const ESTADOS = ['pendiente', 'pagado', 'enviado', 'entregado'] as const;
+const ESTADOS = ['reservado', 'pendiente_entrega', 'entregado'] as const;
 
 const estadoIcons: Record<string, typeof Clock> = {
-  pendiente: Clock,
-  pagado: Check,
-  enviado: Truck,
+  reservado: Clock,
+  pendiente_entrega: Truck,
   entretenimiento: Package
 };
 
 const estadoColors: Record<string, string> = {
-  pendiente: 'yellow',
-  pagado: 'blue',
-  enviado: 'purple',
+  reservado: 'yellow',
+  pendiente_entrega: 'blue',
   entregado: 'green'
 };
 
@@ -38,7 +36,7 @@ export function Pedidos() {
   const [productos, setProductos] = useState<Producto[]>([]);
   const [filteredPedidos, setFilteredPedidos] = useState<Pedido[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterEstado, setFilterEstado] = useState<string>('pendiente');
+  const [filterEstado, setFilterEstado] = useState<string>('reservado');
   const [clientes, setClientes] = useState<ClienteFidelidad[]>([]);
   const [activeTab, setActiveTab] = useState<'pendientes' | 'historial'>('pendientes');
   
@@ -97,8 +95,8 @@ export function Pedidos() {
   useEffect(() => {
     // Aplicar filtros de búsqueda
     let filtered = activeTab === 'pendientes' 
-      ? pedidos.filter(p => p.estado === 'pendiente')
-      : pedidos.filter(p => p.estado !== 'pendiente');
+      ? pedidos.filter(p => p.estado === 'reservado')
+      : pedidos.filter(p => p.estado !== 'reservado');
     
     // Si hay un filtro de estado específico en historial
     if (activeTab === 'historial' && filterEstado !== 'all') {
@@ -287,7 +285,8 @@ export function Pedidos() {
           producto_id: item.producto_id,
           cantidad: item.cantidad,
           precio_unitario: item.precio_unitario,
-          color: item.color
+          color: item.color || '',
+          talla: item.talla || ''
         }))
       });
       
@@ -366,7 +365,7 @@ export function Pedidos() {
         <div>
           <h1 className={styles.title}>Pedidos</h1>
           <p className={styles.subtitle}>
-            {pedidos.filter(p => p.estado === 'pendiente').length} pendientes • {pedidos.filter(p => p.estado !== 'pendiente').length} completados
+            {pedidos.filter(p => p.estado === 'reservado').length} pendientes • {pedidos.filter(p => p.estado !== 'reservado').length} completados
           </p>
         </div>
         <button className="btn btn-primary" onClick={handleOpenModal}>
@@ -381,13 +380,13 @@ export function Pedidos() {
           className={`${styles.tab} ${activeTab === 'pendientes' ? styles.activeTab : ''}`}
           onClick={() => setActiveTab('pendientes')}
         >
-          Pendientes ({pedidos.filter(p => p.estado === 'pendiente').length})
+          Pendientes ({pedidos.filter(p => p.estado === 'reservado').length})
         </button>
         <button
           className={`${styles.tab} ${activeTab === 'historial' ? styles.activeTab : ''}`}
           onClick={() => setActiveTab('historial')}
         >
-          Historial ({pedidos.filter(p => p.estado !== 'pendiente').length})
+          Historial ({pedidos.filter(p => p.estado !== 'reservado').length})
         </button>
       </div>
 
@@ -417,9 +416,9 @@ export function Pedidos() {
                 key={estado}
                 className={`${styles.filterBtn} ${filterEstado === estado ? styles.active : ''}`}
                 onClick={() => setFilterEstado(estado)}
-                disabled={estado === 'pendiente'}
+                disabled={estado === 'reservado'}
               >
-                {estado.charAt(0).toUpperCase() + estado.slice(1)}
+                {estado === 'reservado' ? 'Reservado' : estado === 'pendiente_entrega' ? 'Pendiente Entrega' : 'Entregado'}
               </button>
             ))}
           </div>

@@ -1,18 +1,22 @@
 // Tipos para el Inventario TopStore
 
+// Una unidad de inventario: producto específico con color y talla juntos
+// Key ejemplo: "Negro-M" = 5 unidades de Camisa en Negro Talla M
 export interface Producto {
   id: number;
   product_id: string;
   nombre: string;
   descripcion: string;
   precio: string;
-  colores: string;
-  tallas: string;
-  stock_por_color?: Record<string, number>;
-  stock_por_talla?: Record<string, number>;
+  colores: string;      // colores disponibles separados por coma
+  tallas: string;      // tallas disponibles separadas por coma
   genero: 'hombres' | 'mujeres';
   categoria: string;
   image_paths: string[];
+  // Stock por combinación color+talla. Key: "Color-Talla", Value: cantidad
+  // Ej: { "Negro-M": 5, "Blanco-L": 3 }
+  unidades: Record<string, number>;
+  // Stock total (calculado como suma de unidades)
   stock: number;
   activo: boolean;
   created_at?: string;
@@ -23,7 +27,8 @@ export interface PedidoItem {
   producto_id: number;
   cantidad: number;
   precio_unitario: number;
-  color?: string;
+  color: string;
+  talla: string;
   producto_nombre?: string;
 }
 
@@ -36,7 +41,7 @@ export interface Pedido {
   cliente_barrio?: string;
   cliente_referencias?: string;
   metodo_pago?: 'efectivo' | 'transferencia';
-  estado: 'pendiente' | 'pagado' | 'enviado' | 'entregado';
+  estado: 'reservado' | 'pendiente_entrega' | 'entregado';
   total: number;
   notas: string;
   items?: PedidoItem[];
@@ -82,12 +87,11 @@ export interface CreateProductoRequest {
   precio: string;
   colores: string;
   tallas: string;
-  stock_por_color?: Record<string, number>;
-  stock_por_talla?: Record<string, number>;
+  unidades: Record<string, number>; // Stock por combinación "Color-Talla"
   genero: 'hombres' | 'mujeres';
   categoria: string;
   image_paths: string[];
-  stock: number;
+  stock: number; // Total (calculado)
 }
 
 export interface UpdateProductoRequest extends Partial<CreateProductoRequest> {
@@ -106,6 +110,7 @@ export interface CreatePedidoRequest {
     producto_id: number;
     cantidad: number;
     precio_unitario: number;
-    color?: string;
+    color: string;
+    talla: string;
   }[];
 }
