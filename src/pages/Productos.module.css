@@ -288,6 +288,23 @@
   min-width: 12px;
 }
 
+/* Tallas list */
+.tallasList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.tallaItem {
+  font-size: 10px;
+  font-weight: var(--font-medium);
+  color: var(--color-text-secondary);
+  padding: 2px 6px;
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-sm);
+}
+
 /* Stock display */
 .stockDisplay {
   display: flex;
@@ -332,6 +349,16 @@
   flex: 1;
   font-size: var(--text-sm);
   color: var(--color-text-primary);
+}
+
+.tallaLabel {
+  flex: 1;
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--color-text-primary);
+  padding: 4px 8px;
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-sm);
 }
 
 .stockControls {

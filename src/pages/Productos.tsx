@@ -10,6 +10,7 @@ import styles from './Productos.module.css';
 
 interface FormData extends CreateProductoRequest {
   stock_por_color?: Record<string, number>;
+  stock_por_talla?: Record<string, number>;
 }
 
 const initialForm: FormData = {
@@ -18,7 +19,9 @@ const initialForm: FormData = {
   descripcion: '',
   precio: '',
   colores: '',
+  tallas: '',
   stock_por_color: {},
+  stock_por_talla: {},
   genero: 'mujeres',
   categoria: '',
   image_paths: [],
@@ -96,13 +99,23 @@ export function Productos() {
       coloresList.forEach(c => {
         if (stockPorColor[c] === undefined) stockPorColor[c] = 0;
       });
+      
+      // Parsear tallas y crear stock_por_talla si no existe
+      const tallasList = (producto.tallas || '').split(', ').filter(t => t.trim());
+      const stockPorTalla = producto.stock_por_talla || {};
+      tallasList.forEach(t => {
+        if (stockPorTalla[t] === undefined) stockPorTalla[t] = 0;
+      });
+      
       setFormData({
         product_id: producto.product_id,
         nombre: producto.nombre,
         descripcion: producto.descripcion,
         precio: producto.precio,
         colores: producto.colores,
+        tallas: producto.tallas || '',
         stock_por_color: stockPorColor,
+        stock_por_talla: stockPorTalla,
         genero: producto.genero,
         categoria: producto.categoria,
         image_paths: producto.image_paths,
@@ -216,6 +229,47 @@ export function Productos() {
     });
   };
 
+  // Actualizar stock de una talla específica
+  const updateTallaStock = (talla: string, delta: number) => {
+    setFormData(prev => {
+      const newStockPorTalla = { ...prev.stock_por_talla };
+      const currentStock = newStockPorTalla[talla] || 0;
+      const newStock = Math.max(0, currentStock + delta);
+      newStockPorTalla[talla] = newStock;
+      
+      // Calcular stock total
+      const totalStock = Object.values(newStockPorTalla).reduce((a, b) => a + b, 0);
+      
+      return {
+        ...prev,
+        stock_por_talla: newStockPorTalla,
+        stock: totalStock
+      };
+    });
+  };
+
+  // Cuando cambian las tallas, actualizar stock_por_talla
+  const handleTallasChange = (newTallas: string) => {
+    setFormData(prev => {
+      const tallaList = newTallas.split(', ').map(t => t.trim()).filter(t => t);
+      const newStockPorTalla: Record<string, number> = {};
+      
+      tallaList.forEach(talla => {
+        // Preservar stock existente o inicializar en 0
+        newStockPorTalla[talla] = prev.stock_por_talla?.[talla] ?? 0;
+      });
+      
+      const totalStock = Object.values(newStockPorTalla).reduce((a, b) => a + b, 0);
+      
+      return {
+        ...prev,
+        tallas: newTallas,
+        stock_por_talla: newStockPorTalla,
+        stock: totalStock
+      };
+    });
+  };
+
   const categorias = ['Camisas', 'Buzos', 'Chaquetas', 'Conjuntos', 'Enterizos', 'Leggings', 'Shorts', 'Tops', 'Medias'];
 
   if (isLoading && productos.length === 0) {
@@ -226,8 +280,8 @@ export function Productos() {
     <div className={styles.container}>
       <header className={styles.header}>
         <div>
-          <h1 className={styles.title}>Productos</h1>
-          <p className={styles.subtitle}>{productos.length} productos en total (sincronizados desde catálogo)</p>
+          <h1 className={styles.title}>Inventario</h1>
+          <p className={styles.subtitle}>{productos.length} productos en total</p>
         </div>
       </header>
 
@@ -307,16 +361,31 @@ export function Productos() {
                 <span className={styles.categoria}>{producto.categoria}</span>
                 <h3 className={styles.productName}>{producto.nombre}</h3>
                 <p className={styles.precio}>{producto.precio}</p>
-                <div className={styles.colorCircles}>
-                  {producto.colores.split(', ').map((color, idx) => (
-                    <div key={idx} className={styles.colorItem}>
-                      <ColorCircle color={color} size="sm" />
-                      <span className={styles.colorStock}>
-                        {producto.stock_por_color?.[color] ?? 0}
+                
+                {/* Mostrar colores si existen */}
+                {producto.colores && (
+                  <div className={styles.colorCircles}>
+                    {producto.colores.split(', ').map((color, idx) => (
+                      <div key={idx} className={styles.colorItem}>
+                        <ColorCircle color={color} size="sm" />
+                        <span className={styles.colorStock}>
+                          {producto.stock_por_color?.[color] ?? 0}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                {/* Mostrar tallas si existen */}
+                {producto.tallas && (
+                  <div className={styles.tallasList}>
+                    {producto.tallas.split(', ').map((talla, idx) => (
+                      <span key={idx} className={styles.tallaItem}>
+                        {talla}: {producto.stock_por_talla?.[talla] ?? 0}
                       </span>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           ))}
@@ -448,6 +517,48 @@ export function Productos() {
                         type="button"
                         className={styles.stockBtn}
                         onClick={() => updateColorStock(color, 1)}
+                      >
+                        <Plus size={14} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className={styles.formGroup}>
+            <label>Tallas</label>
+            <input
+              type="text"
+              value={formData.tallas}
+              onChange={(e) => handleTallasChange(e.target.value)}
+              className="input"
+              placeholder="S, M, L, XL"
+            />
+          </div>
+
+          {/* Editor de stock por talla */}
+          {formData.tallas && (
+            <div className={styles.formGroup}>
+              <label>Stock por Talla</label>
+              <div className={styles.colorStockEditor}>
+                {formData.tallas.split(', ').filter(t => t.trim()).map((talla) => (
+                  <div key={talla} className={styles.colorStockItem}>
+                    <span className={styles.tallaLabel}>{talla}</span>
+                    <div className={styles.stockControls}>
+                      <button 
+                        type="button"
+                        className={styles.stockBtn}
+                        onClick={() => updateTallaStock(talla, -1)}
+                      >
+                        <Minus size={14} />
+                      </button>
+                      <span className={styles.stockValue}>{formData.stock_por_talla?.[talla] || 0}</span>
+                      <button 
+                        type="button"
+                        className={styles.stockBtn}
+                        onClick={() => updateTallaStock(talla, 1)}
                       >
                         <Plus size={14} />
                       </button>

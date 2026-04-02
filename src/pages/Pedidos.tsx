@@ -4,7 +4,7 @@ import { useApi } from '../hooks/useApi';
 import { useToast } from '../components/Toast';
 import { Modal } from '../components/Modal';
 import { PageLoading } from '../components/Loading';
-import type { Pedido, Producto } from '../types';
+import type { Pedido, PedidoItem, Producto } from '../types';
 import styles from './Pedidos.module.css';
 
 interface ClienteFidelidad {
@@ -30,15 +30,6 @@ const estadoColors: Record<string, string> = {
   entregado: 'green'
 };
 
-interface PedidoItem {
-  producto_id: number;
-  cantidad: number;
-  precio_unitario: number;
-  color: string;
-  producto_nombre?: string;
-  colores_disponibles?: string[];
-}
-
 export function Pedidos() {
   const { getPedidos, getProductos, createPedido, updatePedidoEstado, deletePedido, isLoading } = useApi();
   const { showToast } = useToast();
@@ -47,8 +38,9 @@ export function Pedidos() {
   const [productos, setProductos] = useState<Producto[]>([]);
   const [filteredPedidos, setFilteredPedidos] = useState<Pedido[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterEstado, setFilterEstado] = useState<string>('all');
+  const [filterEstado, setFilterEstado] = useState<string>('pendiente');
   const [clientes, setClientes] = useState<ClienteFidelidad[]>([]);
+  const [activeTab, setActiveTab] = useState<'pendientes' | 'historial'>('pendientes');
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [nuevoPedido, setNuevoPedido] = useState<{
@@ -103,8 +95,28 @@ export function Pedidos() {
   }, []);
 
   useEffect(() => {
-    setFilteredPedidos(pedidos);
-  }, [pedidos]);
+    // Aplicar filtros de búsqueda
+    let filtered = activeTab === 'pendientes' 
+      ? pedidos.filter(p => p.estado === 'pendiente')
+      : pedidos.filter(p => p.estado !== 'pendiente');
+    
+    // Si hay un filtro de estado específico en historial
+    if (activeTab === 'historial' && filterEstado !== 'all') {
+      filtered = filtered.filter(p => p.estado === filterEstado);
+    }
+    
+    // Filtro de búsqueda
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      filtered = filtered.filter(p => 
+        p.cliente_nombre.toLowerCase().includes(term) ||
+        p.cliente_telefono.includes(term) ||
+        p.id.toString().includes(term)
+      );
+    }
+    
+    setFilteredPedidos(filtered);
+  }, [searchTerm, filterEstado, activeTab, pedidos]);
 
   const loadData = async () => {
     const [pedidosResult, productosResult] = await Promise.all([
@@ -164,30 +176,29 @@ export function Pedidos() {
   };
 
   const addItem = () => {
-    if (productoSeleccionado === '' || colorSeleccionado === '') return;
+    if (productoSeleccionado === '') return;
     
     const producto = productos.find(p => p.id === Number(productoSeleccionado));
     if (!producto) return;
     
-    // Verificar stock disponible del color
-    const stockColor = producto.stock_por_color?.[colorSeleccionado] || 0;
-    if (stockColor === 0) {
-      showToast(`No hay stock disponible en color ${colorSeleccionado}`, 'error');
+    // Verificar stock disponible
+    if (producto.stock === 0) {
+      showToast(`No hay stock disponible`, 'error');
       return;
     }
     
     const existingIndex = nuevoPedido.items.findIndex(
-      item => item.producto_id === producto.id && item.color === colorSeleccionado
+      item => item.producto_id === producto.id
     );
     
     if (existingIndex >= 0) {
       const items = [...nuevoPedido.items];
       // Verificar que no exceda el stock
-      if (items[existingIndex].cantidad < stockColor) {
+      if (items[existingIndex].cantidad < producto.stock) {
         items[existingIndex].cantidad += 1;
         setNuevoPedido(prev => ({ ...prev, items }));
       } else {
-        showToast(`Stock máximo alcanzado para ${colorSeleccionado}`, 'warning');
+        showToast(`Stock máximo alcanzado`, 'warning');
         return;
       }
     } else {
@@ -199,7 +210,7 @@ export function Pedidos() {
             producto_id: producto.id,
             cantidad: 1,
             precio_unitario: parseInt(producto.precio.replace(/[$.]/g, '')) || 0,
-            color: colorSeleccionado,
+            color: '',
             producto_nombre: producto.nombre,
             colores_disponibles: producto.colores.split(', ')
           }
@@ -208,7 +219,6 @@ export function Pedidos() {
     }
     
     setProductoSeleccionado('');
-    setColorSeleccionado('');
   };
 
   const updateItemCantidad = (index: number, cantidad: number) => {
@@ -218,7 +228,7 @@ export function Pedidos() {
     const producto = productos.find(p => p.id === item.producto_id);
     if (!producto) return;
     
-    const stockDisponible = producto.stock_por_color?.[item.color] || 0;
+    const stockDisponible = producto.stock || 0;
     
     if (cantidad > stockDisponible) {
       showToast(`Stock máximo disponible: ${stockDisponible}`, 'warning');
@@ -355,13 +365,31 @@ export function Pedidos() {
       <header className={styles.header}>
         <div>
           <h1 className={styles.title}>Pedidos</h1>
-          <p className={styles.subtitle}>{pedidos.length} pedidos en total</p>
+          <p className={styles.subtitle}>
+            {pedidos.filter(p => p.estado === 'pendiente').length} pendientes • {pedidos.filter(p => p.estado !== 'pendiente').length} completados
+          </p>
         </div>
         <button className="btn btn-primary" onClick={handleOpenModal}>
           <Plus size={18} />
           Nuevo Pedido
         </button>
       </header>
+
+      {/* Tabs para separar pedidos pendientes de historial */}
+      <div className={styles.tabs}>
+        <button
+          className={`${styles.tab} ${activeTab === 'pendientes' ? styles.activeTab : ''}`}
+          onClick={() => setActiveTab('pendientes')}
+        >
+          Pendientes ({pedidos.filter(p => p.estado === 'pendiente').length})
+        </button>
+        <button
+          className={`${styles.tab} ${activeTab === 'historial' ? styles.activeTab : ''}`}
+          onClick={() => setActiveTab('historial')}
+        >
+          Historial ({pedidos.filter(p => p.estado !== 'pendiente').length})
+        </button>
+      </div>
 
       {/* Filters */}
       <div className={styles.filters}>
@@ -376,23 +404,26 @@ export function Pedidos() {
           />
         </div>
 
-        <div className={styles.filterButtons}>
-          <button
-            className={`${styles.filterBtn} ${filterEstado === 'all' ? styles.active : ''}`}
-            onClick={() => setFilterEstado('all')}
-          >
-            Todos
-          </button>
-          {ESTADOS.map(estado => (
+        {activeTab === 'historial' && (
+          <div className={styles.filterButtons}>
             <button
-              key={estado}
-              className={`${styles.filterBtn} ${filterEstado === estado ? styles.active : ''}`}
-              onClick={() => setFilterEstado(estado)}
+              className={`${styles.filterBtn} ${filterEstado === 'all' ? styles.active : ''}`}
+              onClick={() => setFilterEstado('all')}
             >
-              {estado.charAt(0).toUpperCase() + estado.slice(1)}
+              Todos
             </button>
-          ))}
-        </div>
+            {ESTADOS.map(estado => (
+              <button
+                key={estado}
+                className={`${styles.filterBtn} ${filterEstado === estado ? styles.active : ''}`}
+                onClick={() => setFilterEstado(estado)}
+                disabled={estado === 'pendiente'}
+              >
+                {estado.charAt(0).toUpperCase() + estado.slice(1)}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Pedidos List */}
@@ -444,6 +475,17 @@ export function Pedidos() {
                     <strong>{pedido.cliente_nombre}</strong>
                     <span>{pedido.cliente_telefono}</span>
                   </div>
+                  
+                  {pedido.items && pedido.items.length > 0 && (
+                    <div className={styles.cardItemsList}>
+                      {pedido.items.map((item, idx) => (
+                        <div key={idx} className={styles.cardItem}>
+                          <span className={styles.cardItemNombre}>{item.producto_nombre}</span>
+                          <span className={styles.cardItemCantidad}>x{item.cantidad}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   
                   {pedido.notas && (
                     <p className={styles.notas}>{pedido.notas}</p>
@@ -620,38 +662,16 @@ export function Pedidos() {
               >
                 <option value="">Seleccionar producto...</option>
                 {productos.map(p => (
-                  <option key={p.id} value={p.id}>
-                    {p.nombre} - {p.precio}
+                  <option key={p.id} value={p.id} disabled={p.stock === 0}>
+                    {p.nombre} - {p.precio} {p.stock === 0 ? '(sin stock)' : `(${p.stock} disp.)`}
                   </option>
                 ))}
               </select>
-              {productoSeleccionado && (
-                <select
-                  value={colorSeleccionado}
-                  onChange={(e) => setColorSeleccionado(e.target.value)}
-                  className="input"
-                >
-                  <option value="">Seleccionar color...</option>
-                  {(() => {
-                    const producto = productos.find(p => p.id === Number(productoSeleccionado));
-                    if (!producto) return null;
-                    const colores = producto.colores.split(', ');
-                    return colores.map(color => {
-                      const stock = producto.stock_por_color?.[color] || 0;
-                      return (
-                        <option key={color} value={color} disabled={stock === 0}>
-                          {color} {stock > 0 ? `(${stock} disp.)` : '(sin stock)'}
-                        </option>
-                      );
-                    });
-                  })()}
-                </select>
-              )}
               <button 
                 type="button" 
                 className="btn btn-secondary" 
                 onClick={addItem}
-                disabled={!productoSeleccionado || !colorSeleccionado}
+                disabled={!productoSeleccionado}
               >
                 <Plus size={18} />
               </button>
@@ -665,7 +685,6 @@ export function Pedidos() {
                 <div key={index} className={styles.item}>
                   <div className={styles.itemInfo}>
                     <span className={styles.itemNombre}>{item.producto_nombre}</span>
-                    <span className={styles.itemColor}>Color: {item.color}</span>
                   </div>
                   <div className={styles.itemCantidad}>
                     <button 

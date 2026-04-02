@@ -7,7 +7,9 @@ export interface Producto {
   descripcion: string;
   precio: string;
   colores: string;
+  tallas: string;
   stock_por_color?: Record<string, number>;
+  stock_por_talla?: Record<string, number>;
   genero: 'hombres' | 'mujeres';
   categoria: string;
   image_paths: string[];
@@ -15,6 +17,14 @@ export interface Producto {
   activo: boolean;
   created_at?: string;
   updated_at?: string;
+}
+
+export interface PedidoItem {
+  producto_id: number;
+  cantidad: number;
+  precio_unitario: number;
+  color?: string;
+  producto_nombre?: string;
 }
 
 export interface Pedido {
@@ -29,6 +39,7 @@ export interface Pedido {
   estado: 'pendiente' | 'pagado' | 'enviado' | 'entregado';
   total: number;
   notas: string;
+  items?: PedidoItem[];
 }
 
 export interface DetallePedido {
@@ -70,7 +81,9 @@ export interface CreateProductoRequest {
   descripcion: string;
   precio: string;
   colores: string;
+  tallas: string;
   stock_por_color?: Record<string, number>;
+  stock_por_talla?: Record<string, number>;
   genero: 'hombres' | 'mujeres';
   categoria: string;
   image_paths: string[];
@@ -93,6 +106,6 @@ export interface CreatePedidoRequest {
     producto_id: number;
     cantidad: number;
     precio_unitario: number;
-    color: string;
+    color?: string;
   }[];
 }

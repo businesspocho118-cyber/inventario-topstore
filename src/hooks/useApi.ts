@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import type { ApiResponse, Producto, Pedido, DashboardStats, CreateProductoRequest, UpdateProductoRequest, CreatePedidoRequest } from '../types';
+import type { ApiResponse, Producto, Pedido, PedidoItem, DashboardStats, CreateProductoRequest, UpdateProductoRequest, CreatePedidoRequest } from '../types';
 import { supabase, TABLES } from '../supabase/config';
 
 // Estado global
@@ -311,6 +311,18 @@ export function useApi() {
     
     const total = req.items.reduce((sum, item) => sum + (item.cantidad * item.precio_unitario), 0);
     
+    // Mapear items con nombres de productos
+    const pedidoItems: PedidoItem[] = req.items.map(item => {
+      const producto = productosDb.find(p => p.id === item.producto_id);
+      return {
+        producto_id: item.producto_id,
+        cantidad: item.cantidad,
+        precio_unitario: item.precio_unitario,
+        color: item.color,
+        producto_nombre: producto?.nombre || `Producto #${item.producto_id}`
+      };
+    });
+
     const nuevo: Pedido = {
       id: Math.floor(Date.now() / 1000) + Math.floor(Math.random() * 1000), // ID en segundos (cabe en integer)
       fecha: new Date().toISOString(),
@@ -322,7 +334,8 @@ export function useApi() {
       metodo_pago: req.metodo_pago,
       notas: req.notas || '',
       estado: 'pendiente',
-      total
+      total,
+      items: pedidoItems
     };
     
     pedidosDb.push(nuevo);
@@ -355,14 +368,11 @@ export function useApi() {
     localStorage.setItem(FIDELIDAD_KEY, JSON.stringify(clientes));
     syncOneClienteToSupabase(clienteActualizado);
     
-    // Reducir stock y sincronizar cada producto
+    // Reducir stock total del producto
     req.items.forEach(item => {
       const p = productosDb.find(p => p.id === item.producto_id);
       if (p) {
         p.stock = Math.max(0, p.stock - item.cantidad);
-        if (item.color && p.stock_por_color) {
-          p.stock_por_color[item.color] = Math.max(0, (p.stock_por_color[item.color] || 0) - item.cantidad);
-        }
         p.updated_at = new Date().toISOString();
         syncOneProductoToSupabase(p);
       }
@@ -510,7 +520,7 @@ export function useApi() {
           if (existIdx !== -1) {
             productosDb[existIdx] = { ...productosDb[existIdx], nombre: name, precio: price, colores: colors, stock_por_color: stockPorColor, genero: validGender, image_paths: imagePaths, activo: true, updated_at: new Date().toISOString(), stock: totalStock };
           } else {
-            productosDb.push({ id: nextProductoId++, product_id: productId, nombre: name, descripcion: '', precio: price, colores: colors, stock_por_color: stockPorColor, genero: validGender, categoria: '', image_paths: imagePaths, stock: totalStock, activo: true, created_at: new Date().toISOString(), updated_at: new Date().toISOString() });
+            productosDb.push({ id: nextProductoId++, product_id: productId, nombre: name, descripcion: '', precio: price, colores: colors, tallas: '', stock_por_color: stockPorColor, stock_por_talla: {}, genero: validGender, categoria: '', image_paths: imagePaths, stock: totalStock, activo: true, created_at: new Date().toISOString(), updated_at: new Date().toISOString() });
           }
           success++;
         } catch (e) { errors.push(`Error: ${e}`); }

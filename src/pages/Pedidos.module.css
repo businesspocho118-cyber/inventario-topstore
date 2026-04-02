@@ -411,6 +411,46 @@
   font-size: var(--text-base);
 }
 
+/* Items in order card */
+.cardItemsList {
+  margin-top: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-md);
+}
+
+.cardItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) 0;
+  font-size: var(--text-sm);
+}
+
+.cardItem:not(:last-child) {
+  border-bottom: 1px dashed var(--color-border);
+}
+
+.cardItemNombre {
+  flex: 1;
+  color: var(--color-text-primary);
+  font-weight: var(--font-medium);
+}
+
+.cardItemColor {
+  color: var(--color-text-tertiary);
+  font-size: var(--text-xs);
+  padding: 2px 6px;
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-sm);
+}
+
+.cardItemCantidad {
+  color: var(--color-accent-primary);
+  font-weight: var(--font-semibold);
+  font-size: var(--text-xs);
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .header {
@@ -493,4 +533,35 @@
   background: var(--color-accent-primary);
   border-color: var(--color-accent-primary);
   color: white;
+}
+
+/* Tabs para separar pedidos */
+.tabs {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-6);
+  border-bottom: 2px solid var(--color-border);
+}
+
+.tab {
+  padding: var(--space-3) var(--space-6);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  color: var(--color-text-secondary);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.tab:hover {
+  color: var(--color-text-primary);
+}
+
+.activeTab {
+  color: var(--color-accent-primary);
+  border-bottom-color: var(--color-accent-primary);
 }
