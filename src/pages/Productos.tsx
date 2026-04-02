@@ -20,6 +20,7 @@ const initialForm: FormData = {
   colores: '',
   tallas: '',
   unidades: {},
+  stock: 0,
   genero: 'mujeres',
   categoria: '',
   image_paths: []
@@ -90,19 +91,8 @@ export function Productos() {
   const handleOpenModal = (producto?: Producto) => {
     if (producto) {
       setEditingProducto(producto);
-      // Parsear colores y crear stock_por_color si no existe
-      const coloresList = producto.colores.split(', ').filter(c => c.trim());
-      const stockPorColor = producto.stock_por_color || {};
-      coloresList.forEach(c => {
-        if (stockPorColor[c] === undefined) stockPorColor[c] = 0;
-      });
-      
-      // Parsear tallas y crear stock_por_talla si no existe
-      const tallasList = (producto.tallas || '').split(', ').filter(t => t.trim());
-      const stockPorTalla = producto.stock_por_talla || {};
-      tallasList.forEach(t => {
-        if (stockPorTalla[t] === undefined) stockPorTalla[t] = 0;
-      });
+      // Usar el campo unidades existente o inicializar vacío
+      const unidades = producto.unidades || {};
       
       setFormData({
         product_id: producto.product_id,
@@ -111,12 +101,11 @@ export function Productos() {
         precio: producto.precio,
         colores: producto.colores,
         tallas: producto.tallas || '',
-        stock_por_color: stockPorColor,
-        stock_por_talla: stockPorTalla,
+        unidades: unidades,
+        stock: producto.stock || 0,
         genero: producto.genero,
         categoria: producto.categoria,
-        image_paths: producto.image_paths,
-        stock: producto.stock
+        image_paths: producto.image_paths
       });
     } else {
       setEditingProducto(null);
@@ -185,83 +174,77 @@ export function Productos() {
     }));
   };
 
-  // Actualizar stock de un color específico
-  const updateColorStock = (color: string, delta: number) => {
+  // Actualizar stock de una combinación específica color+talla
+  const updateUnidadStock = (color: string, talla: string, delta: number) => {
+    const key = `${color}-${talla}`;
     setFormData(prev => {
-      const newStockPorColor = { ...prev.stock_por_color };
-      const currentStock = newStockPorColor[color] || 0;
+      const newUnidades = { ...(prev.unidades || {}) };
+      const currentStock = newUnidades[key] || 0;
       const newStock = Math.max(0, currentStock + delta);
-      newStockPorColor[color] = newStock;
+      newUnidades[key] = newStock;
       
       // Calcular stock total
-      const totalStock = Object.values(newStockPorColor).reduce((a, b) => a + b, 0);
+      const totalStock = Object.values(newUnidades).reduce((a, b) => a + b, 0);
       
       return {
         ...prev,
-        stock_por_color: newStockPorColor,
+        unidades: newUnidades,
         stock: totalStock
       };
     });
   };
 
-  // Cuando cambian los colores, actualizar stock_por_color
+  // Cuando cambian los colores, limpiar unidades que ya no existen
   const handleColorsChange = (newColors: string) => {
     setFormData(prev => {
       const colorList = newColors.split(', ').map(c => c.trim()).filter(c => c);
-      const newStockPorColor: Record<string, number> = {};
+      const tallaList = (prev.tallas || '').split(', ').filter(t => t.trim());
+      const newUnidades: Record<string, number> = {};
       
+      // Mantener solo las combinaciones que siguen siendo válidas
       colorList.forEach(color => {
-        // Preservar stock existente o inicializar en 0
-        newStockPorColor[color] = prev.stock_por_color?.[color] ?? 0;
+        tallaList.forEach(talla => {
+          const key = `${color}-${talla}`;
+          if (prev.unidades && prev.unidades[key] !== undefined) {
+            newUnidades[key] = prev.unidades[key];
+          }
+        });
       });
       
-      const totalStock = Object.values(newStockPorColor).reduce((a, b) => a + b, 0);
+      const totalStock = Object.values(newUnidades).reduce((a, b) => a + b, 0);
       
       return {
         ...prev,
         colores: newColors,
-        stock_por_color: newStockPorColor,
+        unidades: newUnidades,
         stock: totalStock
       };
     });
   };
 
-  // Actualizar stock de una talla específica
-  const updateTallaStock = (talla: string, delta: number) => {
-    setFormData(prev => {
-      const newStockPorTalla = { ...prev.stock_por_talla };
-      const currentStock = newStockPorTalla[talla] || 0;
-      const newStock = Math.max(0, currentStock + delta);
-      newStockPorTalla[talla] = newStock;
-      
-      // Calcular stock total
-      const totalStock = Object.values(newStockPorTalla).reduce((a, b) => a + b, 0);
-      
-      return {
-        ...prev,
-        stock_por_talla: newStockPorTalla,
-        stock: totalStock
-      };
-    });
-  };
-
-  // Cuando cambian las tallas, actualizar stock_por_talla
+  // Cuando cambian las tallas, limpiar unidades que ya no existen
   const handleTallasChange = (newTallas: string) => {
     setFormData(prev => {
-      const tallaList = newTallas.split(', ').map(t => t.trim()).filter(t => t);
-      const newStockPorTalla: Record<string, number> = {};
+      const colorList = (prev.colores || '').split(', ').filter(c => c.trim());
+      const tallaList = newTallas.split(', ').filter(t => t.trim());
+      const newUnidades: Record<string, number> = {};
       
-      tallaList.forEach(talla => {
-        // Preservar stock existente o inicializar en 0
-        newStockPorTalla[talla] = prev.stock_por_talla?.[talla] ?? 0;
+      // Mantener solo las combinaciones que siguen siendo válidas
+      colorList.forEach(color => {
+        tallaList.forEach(talla => {
+          const key = `${color}-${talla}`;
+          if (prev.unidades && prev.unidades[key] !== undefined) {
+            newUnidades[key] = prev.unidades[key];
+          }
+        });
       });
       
-      const totalStock = Object.values(newStockPorTalla).reduce((a, b) => a + b, 0);
+      const totalStock = Object.values(newUnidades).reduce((a, b) => a + b, 0);
       
       return {
         ...prev,
         tallas: newTallas,
-        stock_por_talla: newStockPorTalla,
+        unidades: newUnidades,
         stock: totalStock
       };
     });
@@ -479,35 +462,54 @@ export function Productos() {
             </div>
           </div>
 
-          {/* Editor de stock por color */}
-          {formData.colores && (
+          {/* Editor de unidades por COLOR+TALLA */}
+          {formData.colores && formData.tallas && (
             <div className={styles.formGroup}>
-              <label>Stock por Color</label>
-              <div className={styles.colorStockEditor}>
-                {formData.colores.split(', ').filter(c => c.trim()).map((color) => (
-                  <div key={color} className={styles.colorStockItem}>
-                    <ColorCircle color={color} size="sm" />
-                    <span className={styles.colorName}>{color}</span>
-                    <div className={styles.stockControls}>
-                      <button 
-                        type="button"
-                        className={styles.stockBtn}
-                        onClick={() => updateColorStock(color, -1)}
-                      >
-                        <Minus size={14} />
-                      </button>
-                      <span className={styles.stockValue}>{formData.stock_por_color?.[color] || 0}</span>
-                      <button 
-                        type="button"
-                        className={styles.stockBtn}
-                        onClick={() => updateColorStock(color, 1)}
-                      >
-                        <Plus size={14} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
+              <label>Inventario por Color y Talla</label>
+              <div className={styles.unidadesEditor}>
+                {/* Header */}
+                <div className={styles.unidadesHeader}>
+                  <span>Color</span>
+                  <span>Talla</span>
+                  <span>Cantidad</span>
+                </div>
+                {/* Grid de todas las combinaciones */}
+                {formData.colores.split(', ').filter(c => c.trim()).map(color => 
+                  formData.tallas.split(', ').filter(t => t.trim()).map(talla => {
+                    const key = `${color}-${talla}`;
+                    const cantidad = formData.unidades?.[key] || 0;
+                    return (
+                      <div key={key} className={styles.unidadRow}>
+                        <div className={styles.unidadColor}>
+                          <ColorCircle color={color} size="sm" />
+                          <span>{color}</span>
+                        </div>
+                        <span className={styles.unidadTalla}>{talla}</span>
+                        <div className={styles.stockControls}>
+                          <button 
+                            type="button"
+                            className={styles.stockBtn}
+                            onClick={() => updateUnidadStock(color, talla, -1)}
+                          >
+                            <Minus size={14} />
+                          </button>
+                          <span className={styles.stockValue}>{cantidad}</span>
+                          <button 
+                            type="button"
+                            className={styles.stockBtn}
+                            onClick={() => updateUnidadStock(color, talla, 1)}
+                          >
+                            <Plus size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
               </div>
+              <p style={{ fontSize: '12px', color: 'var(--color-text-tertiary)', marginTop: '8px' }}>
+                Stock total: {Object.values(formData.unidades || {}).reduce((a: number, b: number) => a + b, 0)} unidades
+              </p>
             </div>
           )}
 
@@ -522,34 +524,54 @@ export function Productos() {
             />
           </div>
 
-          {/* Editor de stock por talla */}
-          {formData.tallas && (
+          {/* Editor de unidades por COLOR+TALLA */}
+          {formData.colores && formData.tallas && (
             <div className={styles.formGroup}>
-              <label>Stock por Talla</label>
-              <div className={styles.colorStockEditor}>
-                {formData.tallas.split(', ').filter(t => t.trim()).map((talla) => (
-                  <div key={talla} className={styles.colorStockItem}>
-                    <span className={styles.tallaLabel}>{talla}</span>
-                    <div className={styles.stockControls}>
-                      <button 
-                        type="button"
-                        className={styles.stockBtn}
-                        onClick={() => updateTallaStock(talla, -1)}
-                      >
-                        <Minus size={14} />
-                      </button>
-                      <span className={styles.stockValue}>{formData.stock_por_talla?.[talla] || 0}</span>
-                      <button 
-                        type="button"
-                        className={styles.stockBtn}
-                        onClick={() => updateTallaStock(talla, 1)}
-                      >
-                        <Plus size={14} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
+              <label>Inventario por Color y Talla</label>
+              <div className={styles.unidadesEditor}>
+                {/* Header */}
+                <div className={styles.unidadesHeader}>
+                  <span>Color</span>
+                  <span>Talla</span>
+                  <span>Cantidad</span>
+                </div>
+                {/* Grid de todas las combinaciones */}
+                {formData.colores.split(', ').filter(c => c.trim()).map(color => 
+                  formData.tallas.split(', ').filter(t => t.trim()).map(talla => {
+                    const key = `${color}-${talla}`;
+                    const cantidad = formData.unidades?.[key] || 0;
+                    return (
+                      <div key={key} className={styles.unidadRow}>
+                        <div className={styles.unidadColor}>
+                          <ColorCircle color={color} size="sm" />
+                          <span>{color}</span>
+                        </div>
+                        <span className={styles.unidadTalla}>{talla}</span>
+                        <div className={styles.stockControls}>
+                          <button 
+                            type="button"
+                            className={styles.stockBtn}
+                            onClick={() => updateUnidadStock(color, talla, -1)}
+                          >
+                            <Minus size={14} />
+                          </button>
+                          <span className={styles.stockValue}>{cantidad}</span>
+                          <button 
+                            type="button"
+                            className={styles.stockBtn}
+                            onClick={() => updateUnidadStock(color, talla, 1)}
+                          >
+                            <Plus size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
               </div>
+              <p style={{ fontSize: '12px', color: 'var(--color-text-tertiary)', marginTop: '8px' }}>
+                Stock total: {Object.values(formData.unidades || {}).reduce((a: number, b: number) => a + b, 0)} unidades
+              </p>
             </div>
           )}
 

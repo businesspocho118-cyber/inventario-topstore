@@ -1,11 +1,10 @@
 import { useState, useCallback, useEffect } from 'react';
-import type { ApiResponse, Producto, Pedido, PedidoItem, UnidadInventario, DashboardStats, CreateProductoRequest, UpdateProductoRequest, CreatePedidoRequest } from '../types';
+import type { ApiResponse, Producto, Pedido, PedidoItem, DashboardStats, CreateProductoRequest, UpdateProductoRequest, CreatePedidoRequest } from '../types';
 import { supabase, TABLES } from '../supabase/config';
 
 // Estado global
 let productosDb: Producto[] = [];
 let pedidosDb: Pedido[] = [];
-let inventarioDb: UnidadInventario[] = []; // inventario detallado por color+talla
 let nextProductoId = 1;
 let nextPedidoId = 1;
 let dataLoaded = false;
@@ -14,7 +13,6 @@ let supabaseConnected = false;
 const STORAGE_KEYS = {
   productos: 'topstore_productos',
   pedidos: 'topstore_pedidos',
-  inventario: 'topstore_inventario', // nuevo: unidades por color+talla
   clientes: 'topstore_clientes_fidelidad',
   lastSync: 'topstore_last_sync'
 };
@@ -321,6 +319,7 @@ export function useApi() {
         cantidad: item.cantidad,
         precio_unitario: item.precio_unitario,
         color: item.color,
+        talla: item.talla,
         producto_nombre: producto?.nombre || `Producto #${item.producto_id}`
       };
     });
@@ -374,7 +373,13 @@ export function useApi() {
     req.items.forEach(item => {
       const p = productosDb.find(p => p.id === item.producto_id);
       if (p) {
-        p.stock = Math.max(0, p.stock - item.cantidad);
+        // Reducir stock de la combinación específica color+talla
+        const key = `${item.color}-${item.talla}`;
+        if (p.unidades && p.unidades[key] !== undefined) {
+          p.unidades[key] = Math.max(0, p.unidades[key] - item.cantidad);
+        }
+        // Recalcular stock total
+        p.stock = Object.values(p.unidades || {}).reduce((a, b) => a + b, 0);
         p.updated_at = new Date().toISOString();
         syncOneProductoToSupabase(p);
       }
@@ -514,7 +519,7 @@ export function useApi() {
           if (existIdx !== -1) {
             productosDb[existIdx] = { ...productosDb[existIdx], nombre: name, precio: price, colores: colors, genero: validGender, image_paths: imagePaths, activo: true, updated_at: new Date().toISOString() };
           } else {
-            productosDb.push({ id: nextProductoId++, product_id: productId, nombre: name, descripcion: '', precio: price, colores: colors, tallas: '', genero: validGender, categoria: '', image_paths: imagePaths, stock: 0, activo: true, created_at: new Date().toISOString(), updated_at: new Date().toISOString() });
+            productosDb.push({ id: nextProductoId++, product_id: productId, nombre: name, descripcion: '', precio: price, colores: colors, tallas: '', unidades: {}, genero: validGender, categoria: '', image_paths: imagePaths, stock: 0, activo: true, created_at: new Date().toISOString(), updated_at: new Date().toISOString() });
           }
           success++;
         } catch (e) { errors.push(`Error: ${e}`); }

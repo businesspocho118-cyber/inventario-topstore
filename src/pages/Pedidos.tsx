@@ -61,7 +61,7 @@ export function Pedidos() {
     items: []
   });
   const [productoSeleccionado, setProductoSeleccionado] = useState<number | ''>('');
-  const [colorSeleccionado, setColorSeleccionado] = useState<string>('');
+  const [colorTallaSeleccionado, setColorTallaSeleccionado] = useState<string>('');
   const [tipoCliente, setTipoCliente] = useState<'nuevo' | 'existente'>('nuevo');
   const [clienteSeleccionado, setClienteSeleccionado] = useState<number | ''>('');
 
@@ -156,7 +156,7 @@ export function Pedidos() {
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setProductoSeleccionado('');
-    setColorSeleccionado('');
+    setColorTallaSeleccionado('');
     setTipoCliente('nuevo');
     setClienteSeleccionado('');
   };
@@ -174,29 +174,33 @@ export function Pedidos() {
   };
 
   const addItem = () => {
-    if (productoSeleccionado === '') return;
+    if (productoSeleccionado === '' || colorTallaSeleccionado === '') return;
     
     const producto = productos.find(p => p.id === Number(productoSeleccionado));
     if (!producto) return;
     
-    // Verificar stock disponible
-    if (producto.stock === 0) {
-      showToast(`No hay stock disponible`, 'error');
+    // Verificar stock disponible para esa combinación específica
+    const stockDisponible = producto.unidades?.[colorTallaSeleccionado] || 0;
+    if (stockDisponible === 0) {
+      showToast(`No hay stock disponible para ${colorTallaSeleccionado}`, 'error');
       return;
     }
     
+    // Separar color y talla de la selección
+    const [color, talla] = colorTallaSeleccionado.split('-');
+    
     const existingIndex = nuevoPedido.items.findIndex(
-      item => item.producto_id === producto.id
+      item => item.producto_id === producto.id && item.color === color && item.talla === talla
     );
     
     if (existingIndex >= 0) {
       const items = [...nuevoPedido.items];
-      // Verificar que no exceda el stock
-      if (items[existingIndex].cantidad < producto.stock) {
+      // Verificar que no exceda el stock de esa combinación
+      if (items[existingIndex].cantidad < stockDisponible) {
         items[existingIndex].cantidad += 1;
         setNuevoPedido(prev => ({ ...prev, items }));
       } else {
-        showToast(`Stock máximo alcanzado`, 'warning');
+        showToast(`Stock máximo alcanzado para ${colorTallaSeleccionado}`, 'warning');
         return;
       }
     } else {
@@ -208,15 +212,16 @@ export function Pedidos() {
             producto_id: producto.id,
             cantidad: 1,
             precio_unitario: parseInt(producto.precio.replace(/[$.]/g, '')) || 0,
-            color: '',
-            producto_nombre: producto.nombre,
-            colores_disponibles: producto.colores.split(', ')
+            color: color,
+            talla: talla,
+            producto_nombre: producto.nombre
           }
         ]
       }));
     }
     
     setProductoSeleccionado('');
+    setColorTallaSeleccionado('');
   };
 
   const updateItemCantidad = (index: number, cantidad: number) => {
@@ -226,7 +231,9 @@ export function Pedidos() {
     const producto = productos.find(p => p.id === item.producto_id);
     if (!producto) return;
     
-    const stockDisponible = producto.stock || 0;
+    // Verificar stock específico para esa combinación color+talla
+    const key = `${item.color}-${item.talla}`;
+    const stockDisponible = producto.unidades?.[key] || 0;
     
     if (cantidad > stockDisponible) {
       showToast(`Stock máximo disponible: ${stockDisponible}`, 'warning');
@@ -655,7 +662,7 @@ export function Pedidos() {
                 value={productoSeleccionado}
                 onChange={(e) => {
                   setProductoSeleccionado(e.target.value as number | '');
-                  setColorSeleccionado('');
+                  setColorTallaSeleccionado('');
                 }}
                 className="input"
               >
@@ -666,11 +673,40 @@ export function Pedidos() {
                   </option>
                 ))}
               </select>
+              {productoSeleccionado && (
+                <select
+                  value={colorTallaSeleccionado}
+                  onChange={(e) => setColorTallaSeleccionado(e.target.value)}
+                  className="input"
+                >
+                  <option value="">Color - Talla...</option>
+                  {(() => {
+                    const producto = productos.find(p => p.id === Number(productoSeleccionado));
+                    if (!producto) return null;
+                    
+                    // Generar todas las combinaciones de color+talla que tengan stock
+                    const colores = producto.colores.split(', ').filter(c => c.trim());
+                    const tallas = producto.tallas.split(', ').filter(t => t.trim());
+                    
+                    return colores.flatMap(color => 
+                      tallas.map(talla => {
+                        const key = `${color}-${talla}`;
+                        const stock = producto.unidades?.[key] || 0;
+                        return (
+                          <option key={key} value={key} disabled={stock === 0}>
+                            {color} / {talla} {stock > 0 ? `(${stock} disp.)` : '(sin stock)'}
+                          </option>
+                        );
+                      })
+                    );
+                  })()}
+                </select>
+              )}
               <button 
                 type="button" 
                 className="btn btn-secondary" 
                 onClick={addItem}
-                disabled={!productoSeleccionado}
+                disabled={!productoSeleccionado || !colorTallaSeleccionado}
               >
                 <Plus size={18} />
               </button>
@@ -684,6 +720,7 @@ export function Pedidos() {
                 <div key={index} className={styles.item}>
                   <div className={styles.itemInfo}>
                     <span className={styles.itemNombre}>{item.producto_nombre}</span>
+                    <span className={styles.itemColor}>{item.color} / {item.talla}</span>
                   </div>
                   <div className={styles.itemCantidad}>
                     <button 
