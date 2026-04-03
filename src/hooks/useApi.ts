@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import type { ApiResponse, Producto, Pedido, DashboardStats, CreateProductoRequest, UpdateProductoRequest, CreatePedidoRequest } from '../types';
+import type { ApiResponse, Producto, Pedido, PedidoItem, DashboardStats, CreateProductoRequest, UpdateProductoRequest, CreatePedidoRequest } from '../types';
 import { supabase, TABLES } from '../supabase/config';
 
 // Estado global
@@ -221,8 +221,8 @@ export function useApi() {
       total_productos: activos.length,
       productos_sin_stock: activos.filter(p => p.stock === 0).length,
       total_pedidos: pedidosDb.length,
-      pedidos_pendientes: pedidosDb.filter(p => p.estado === 'pendiente').length,
-      ingresos_totales: pedidosDb.filter(p => p.estado === 'entregado' || p.estado === 'pagado').reduce((s, p) => s + p.total, 0)
+      pedidos_pendientes: pedidosDb.filter(p => p.estado === 'reservado').length,
+      ingresos_totales: pedidosDb.filter(p => p.estado === 'entregado').reduce((s, p) => s + p.total, 0)
     };
     
     setIsLoading(false);
@@ -311,6 +311,19 @@ export function useApi() {
     
     const total = req.items.reduce((sum, item) => sum + (item.cantidad * item.precio_unitario), 0);
     
+    // Mapear items con nombres de productos
+    const pedidoItems: PedidoItem[] = req.items.map(item => {
+      const producto = productosDb.find(p => p.id === item.producto_id);
+      return {
+        producto_id: item.producto_id,
+        cantidad: item.cantidad,
+        precio_unitario: item.precio_unitario,
+        color: item.color,
+        talla: item.talla,
+        producto_nombre: producto?.nombre || `Producto #${item.producto_id}`
+      };
+    });
+
     const nuevo: Pedido = {
       id: Math.floor(Date.now() / 1000) + Math.floor(Math.random() * 1000), // ID en segundos (cabe en integer)
       fecha: new Date().toISOString(),
@@ -321,8 +334,9 @@ export function useApi() {
       cliente_referencias: req.cliente_referencias,
       metodo_pago: req.metodo_pago,
       notas: req.notas || '',
-      estado: 'pendiente',
-      total
+      estado: 'reservado',
+      total,
+      items: pedidoItems
     };
     
     pedidosDb.push(nuevo);
@@ -355,14 +369,17 @@ export function useApi() {
     localStorage.setItem(FIDELIDAD_KEY, JSON.stringify(clientes));
     syncOneClienteToSupabase(clienteActualizado);
     
-    // Reducir stock y sincronizar cada producto
+    // Reducir stock total del producto
     req.items.forEach(item => {
       const p = productosDb.find(p => p.id === item.producto_id);
       if (p) {
-        p.stock = Math.max(0, p.stock - item.cantidad);
-        if (item.color && p.stock_por_color) {
-          p.stock_por_color[item.color] = Math.max(0, (p.stock_por_color[item.color] || 0) - item.cantidad);
+        // Reducir stock de la combinación específica color+talla
+        const key = `${item.color}-${item.talla}`;
+        if (p.unidades && p.unidades[key] !== undefined) {
+          p.unidades[key] = Math.max(0, p.unidades[key] - item.cantidad);
         }
+        // Recalcular stock total
+        p.stock = Object.values(p.unidades || {}).reduce((a, b) => a + b, 0);
         p.updated_at = new Date().toISOString();
         syncOneProductoToSupabase(p);
       }
@@ -494,23 +511,15 @@ export function useApi() {
           
           catalogIds.push(productId);
           const validGender = gender === 'mujeres' ? 'mujeres' : 'hombres';
-          const colorList = colors.split(', ').map((c: string) => c.trim()).filter((c: string) => c);
           const imagePaths = gallery.map((img: any) => img.src?.startsWith('http') ? img.src : `${CATALOG_URL}/${img.src}`);
           
+          // No importar stock del catálogo - ahora se gestiona manualmente
           const existIdx = productosDb.findIndex(p => p.product_id === productId);
-          const stockPorColor: Record<string, number> = {};
-          
-          colorList.forEach((color: string) => {
-            stockPorColor[color] = existIdx !== -1 && productosDb[existIdx].stock_por_color?.[color] !== undefined 
-              ? productosDb[existIdx].stock_por_color![color] : 0;
-          });
-          
-          const totalStock = Object.values(stockPorColor).reduce((a, b) => a + b, 0);
           
           if (existIdx !== -1) {
-            productosDb[existIdx] = { ...productosDb[existIdx], nombre: name, precio: price, colores: colors, stock_por_color: stockPorColor, genero: validGender, image_paths: imagePaths, activo: true, updated_at: new Date().toISOString(), stock: totalStock };
+            productosDb[existIdx] = { ...productosDb[existIdx], nombre: name, precio: price, colores: colors, genero: validGender, image_paths: imagePaths, activo: true, updated_at: new Date().toISOString() };
           } else {
-            productosDb.push({ id: nextProductoId++, product_id: productId, nombre: name, descripcion: '', precio: price, colores: colors, stock_por_color: stockPorColor, genero: validGender, categoria: '', image_paths: imagePaths, stock: totalStock, activo: true, created_at: new Date().toISOString(), updated_at: new Date().toISOString() });
+            productosDb.push({ id: nextProductoId++, product_id: productId, nombre: name, descripcion: '', precio: price, colores: colors, tallas: '', unidades: {}, genero: validGender, categoria: '', image_paths: imagePaths, stock: 0, activo: true, created_at: new Date().toISOString(), updated_at: new Date().toISOString() });
           }
           success++;
         } catch (e) { errors.push(`Error: ${e}`); }

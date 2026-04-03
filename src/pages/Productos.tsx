@@ -9,7 +9,7 @@ import type { Producto, CreateProductoRequest, UpdateProductoRequest } from '../
 import styles from './Productos.module.css';
 
 interface FormData extends CreateProductoRequest {
-  stock_por_color?: Record<string, number>;
+  unidades: Record<string, number>;
 }
 
 const initialForm: FormData = {
@@ -18,11 +18,12 @@ const initialForm: FormData = {
   descripcion: '',
   precio: '',
   colores: '',
-  stock_por_color: {},
+  tallas: '',
+  unidades: {},
+  stock: 0,
   genero: 'mujeres',
   categoria: '',
-  image_paths: [],
-  stock: 0
+  image_paths: []
 };
 
 export function Productos() {
@@ -90,23 +91,21 @@ export function Productos() {
   const handleOpenModal = (producto?: Producto) => {
     if (producto) {
       setEditingProducto(producto);
-      // Parsear colores y crear stock_por_color si no existe
-      const coloresList = producto.colores.split(', ').filter(c => c.trim());
-      const stockPorColor = producto.stock_por_color || {};
-      coloresList.forEach(c => {
-        if (stockPorColor[c] === undefined) stockPorColor[c] = 0;
-      });
+      // Usar el campo unidades existente o inicializar vacío
+      const unidades = producto.unidades || {};
+      
       setFormData({
         product_id: producto.product_id,
         nombre: producto.nombre,
         descripcion: producto.descripcion,
         precio: producto.precio,
         colores: producto.colores,
-        stock_por_color: stockPorColor,
+        tallas: producto.tallas || '',
+        unidades: unidades,
+        stock: producto.stock || 0,
         genero: producto.genero,
         categoria: producto.categoria,
-        image_paths: producto.image_paths,
-        stock: producto.stock
+        image_paths: producto.image_paths
       });
     } else {
       setEditingProducto(null);
@@ -175,42 +174,77 @@ export function Productos() {
     }));
   };
 
-  // Actualizar stock de un color específico
-  const updateColorStock = (color: string, delta: number) => {
+  // Actualizar stock de una combinación específica color+talla
+  const updateUnidadStock = (color: string, talla: string, delta: number) => {
+    const key = `${color}-${talla}`;
     setFormData(prev => {
-      const newStockPorColor = { ...prev.stock_por_color };
-      const currentStock = newStockPorColor[color] || 0;
+      const newUnidades = { ...(prev.unidades || {}) };
+      const currentStock = newUnidades[key] || 0;
       const newStock = Math.max(0, currentStock + delta);
-      newStockPorColor[color] = newStock;
+      newUnidades[key] = newStock;
       
       // Calcular stock total
-      const totalStock = Object.values(newStockPorColor).reduce((a, b) => a + b, 0);
+      const totalStock = Object.values(newUnidades).reduce((a, b) => a + b, 0);
       
       return {
         ...prev,
-        stock_por_color: newStockPorColor,
+        unidades: newUnidades,
         stock: totalStock
       };
     });
   };
 
-  // Cuando cambian los colores, actualizar stock_por_color
+  // Cuando cambian los colores, limpiar unidades que ya no existen
   const handleColorsChange = (newColors: string) => {
     setFormData(prev => {
       const colorList = newColors.split(', ').map(c => c.trim()).filter(c => c);
-      const newStockPorColor: Record<string, number> = {};
+      const tallaList = (prev.tallas || '').split(', ').filter(t => t.trim());
+      const newUnidades: Record<string, number> = {};
       
+      // Mantener solo las combinaciones que siguen siendo válidas
       colorList.forEach(color => {
-        // Preservar stock existente o inicializar en 0
-        newStockPorColor[color] = prev.stock_por_color?.[color] ?? 0;
+        tallaList.forEach(talla => {
+          const key = `${color}-${talla}`;
+          if (prev.unidades && prev.unidades[key] !== undefined) {
+            newUnidades[key] = prev.unidades[key];
+          }
+        });
       });
       
-      const totalStock = Object.values(newStockPorColor).reduce((a, b) => a + b, 0);
+      const totalStock = Object.values(newUnidades).reduce((a, b) => a + b, 0);
       
       return {
         ...prev,
         colores: newColors,
-        stock_por_color: newStockPorColor,
+        unidades: newUnidades,
+        stock: totalStock
+      };
+    });
+  };
+
+  // Cuando cambian las tallas, limpiar unidades que ya no existen
+  const handleTallasChange = (newTallas: string) => {
+    setFormData(prev => {
+      const colorList = (prev.colores || '').split(', ').filter(c => c.trim());
+      const tallaList = newTallas.split(', ').filter(t => t.trim());
+      const newUnidades: Record<string, number> = {};
+      
+      // Mantener solo las combinaciones que siguen siendo válidas
+      colorList.forEach(color => {
+        tallaList.forEach(talla => {
+          const key = `${color}-${talla}`;
+          if (prev.unidades && prev.unidades[key] !== undefined) {
+            newUnidades[key] = prev.unidades[key];
+          }
+        });
+      });
+      
+      const totalStock = Object.values(newUnidades).reduce((a, b) => a + b, 0);
+      
+      return {
+        ...prev,
+        tallas: newTallas,
+        unidades: newUnidades,
         stock: totalStock
       };
     });
@@ -226,8 +260,8 @@ export function Productos() {
     <div className={styles.container}>
       <header className={styles.header}>
         <div>
-          <h1 className={styles.title}>Productos</h1>
-          <p className={styles.subtitle}>{productos.length} productos en total (sincronizados desde catálogo)</p>
+          <h1 className={styles.title}>Inventario</h1>
+          <p className={styles.subtitle}>{productos.length} productos en total</p>
         </div>
       </header>
 
@@ -307,16 +341,23 @@ export function Productos() {
                 <span className={styles.categoria}>{producto.categoria}</span>
                 <h3 className={styles.productName}>{producto.nombre}</h3>
                 <p className={styles.precio}>{producto.precio}</p>
-                <div className={styles.colorCircles}>
-                  {producto.colores.split(', ').map((color, idx) => (
-                    <div key={idx} className={styles.colorItem}>
-                      <ColorCircle color={color} size="sm" />
-                      <span className={styles.colorStock}>
-                        {producto.stock_por_color?.[color] ?? 0}
-                      </span>
-                    </div>
-                  ))}
-                </div>
+                
+                {/* Mostrar colores como círculos y tallas como texto */}
+                {(producto.colores || producto.tallas) && (
+                  <div className={styles.colorCircles}>
+                    {/* Círculos de colores disponibles */}
+                    {producto.colores && producto.colores.split(', ').filter(c => c.trim()).map((color, idx) => (
+                      <ColorCircle key={color} color={color} size="sm" />
+                    ))}
+                    {/* Mostrar talla si hay una sola, o "X tallas" si hay varias */}
+                    {producto.tallas && producto.tallas.split(', ').filter(t => t.trim()).length === 1 && (
+                      <span className={styles.tallaLabel}>{producto.tallas}</span>
+                    )}
+                    {producto.tallas && producto.tallas.split(', ').filter(t => t.trim()).length > 1 && (
+                      <span className={styles.tallaLabel}>{producto.tallas.split(', ').filter(t => t.trim()).join(', ')}</span>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           ))}
@@ -426,35 +467,116 @@ export function Productos() {
             </div>
           </div>
 
-          {/* Editor de stock por color */}
-          {formData.colores && (
+          {/* Editor de unidades por COLOR+TALLA */}
+          {formData.colores && formData.tallas && (
             <div className={styles.formGroup}>
-              <label>Stock por Color</label>
-              <div className={styles.colorStockEditor}>
-                {formData.colores.split(', ').filter(c => c.trim()).map((color) => (
-                  <div key={color} className={styles.colorStockItem}>
-                    <ColorCircle color={color} size="sm" />
-                    <span className={styles.colorName}>{color}</span>
-                    <div className={styles.stockControls}>
-                      <button 
-                        type="button"
-                        className={styles.stockBtn}
-                        onClick={() => updateColorStock(color, -1)}
-                      >
-                        <Minus size={14} />
-                      </button>
-                      <span className={styles.stockValue}>{formData.stock_por_color?.[color] || 0}</span>
-                      <button 
-                        type="button"
-                        className={styles.stockBtn}
-                        onClick={() => updateColorStock(color, 1)}
-                      >
-                        <Plus size={14} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
+              <label>Inventario por Color y Talla</label>
+              <div className={styles.unidadesEditor}>
+                {/* Header */}
+                <div className={styles.unidadesHeader}>
+                  <span>Color</span>
+                  <span>Talla</span>
+                  <span>Cantidad</span>
+                </div>
+                {/* Grid de todas las combinaciones */}
+                {formData.colores.split(', ').filter(c => c.trim()).map(color => 
+                  formData.tallas.split(', ').filter(t => t.trim()).map(talla => {
+                    const key = `${color}-${talla}`;
+                    const cantidad = formData.unidades?.[key] || 0;
+                    return (
+                      <div key={key} className={styles.unidadRow}>
+                        <div className={styles.unidadColor}>
+                          <ColorCircle color={color} size="sm" />
+                          <span>{color}</span>
+                        </div>
+                        <span className={styles.unidadTalla}>{talla}</span>
+                        <div className={styles.stockControls}>
+                          <button 
+                            type="button"
+                            className={styles.stockBtn}
+                            onClick={() => updateUnidadStock(color, talla, -1)}
+                          >
+                            <Minus size={14} />
+                          </button>
+                          <span className={styles.stockValue}>{cantidad}</span>
+                          <button 
+                            type="button"
+                            className={styles.stockBtn}
+                            onClick={() => updateUnidadStock(color, talla, 1)}
+                          >
+                            <Plus size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
               </div>
+              <p style={{ fontSize: '12px', color: 'var(--color-text-tertiary)', marginTop: '8px' }}>
+                Stock total: {Object.values(formData.unidades || {}).reduce((a: number, b: number) => a + b, 0)} unidades
+              </p>
+            </div>
+          )}
+
+          <div className={styles.formGroup}>
+            <label>Tallas</label>
+            <input
+              type="text"
+              value={formData.tallas}
+              onChange={(e) => handleTallasChange(e.target.value)}
+              className="input"
+              placeholder="S, M, L, XL"
+            />
+          </div>
+
+          {/* Editor de unidades por COLOR+TALLA */}
+          {formData.colores && formData.tallas && (
+            <div className={styles.formGroup}>
+              <label>Inventario por Color y Talla</label>
+              <div className={styles.unidadesEditor}>
+                {/* Header */}
+                <div className={styles.unidadesHeader}>
+                  <span>Color</span>
+                  <span>Talla</span>
+                  <span>Cantidad</span>
+                </div>
+                {/* Grid de todas las combinaciones */}
+                {formData.colores.split(', ').filter(c => c.trim()).map(color => 
+                  formData.tallas.split(', ').filter(t => t.trim()).map(talla => {
+                    const key = `${color}-${talla}`;
+                    const cantidad = formData.unidades?.[key] || 0;
+                    return (
+                      <div key={key} className={styles.unidadRow}>
+                        <div className={styles.unidadColor}>
+                          <ColorCircle color={color} size="sm" />
+                          <span>{color}</span>
+                        </div>
+                        <span className={styles.unidadTalla}>{talla}</span>
+                        <div className={styles.stockControls}>
+                          <button 
+                            type="button"
+                            className={styles.stockBtn}
+                            onClick={() => updateUnidadStock(color, talla, -1)}
+                          >
+                            <Minus size={14} />
+                          </button>
+                          <span className={styles.stockValue}>{cantidad}</span>
+                          <button 
+                            type="button"
+                            className={styles.stockBtn}
+                            onClick={() => updateUnidadStock(color, talla, 1)}
+                          >
+                            <Plus size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+              <p style={{ fontSize: '12px', color: 'var(--color-text-tertiary)', marginTop: '8px' }}>
+                Stock total: {Object.values(formData.unidades || {}).reduce((a: number, b: number) => a + b, 0)} unidades
+              </p>
             </div>
           )}
 
