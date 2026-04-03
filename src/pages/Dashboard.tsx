@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { Package, ShoppingCart, AlertTriangle, DollarSign, TrendingUp, ArrowRight } from 'lucide-react';
+import { Package, ShoppingCart, AlertTriangle, DollarSign, TrendingUp, Wallet } from 'lucide-react';
 import { useApi } from '../hooks/useApi';
 import { StatCard } from '../components/StatCard';
 import { PageLoading } from '../components/Loading';
@@ -46,7 +45,7 @@ export function Dashboard() {
         </div>
       </header>
 
-      {/* Stats Grid */}
+      {/* Stats Grid - Main metrics */}
       <div className={styles.statsGrid}>
         <StatCard
           title="Total Productos"
@@ -59,6 +58,12 @@ export function Dashboard() {
           value={stats?.productos_sin_stock || 0}
           icon={AlertTriangle}
           color="red"
+        />
+        <StatCard
+          title="Valor Inventario"
+          value={formatCurrency(stats?.valor_inventario || 0)}
+          icon={Wallet}
+          color="green"
         />
         <StatCard
           title="Pedidos Totales"
@@ -80,46 +85,42 @@ export function Dashboard() {
         />
       </div>
 
-      {/* Quick Actions */}
+      {/* Products by Gender */}
       <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>Acciones Rápidas</h2>
-        <div className={styles.actionsGrid}>
-          <Link to="/productos" className={styles.actionCard}>
-            <div className={styles.actionIcon}>
-              <Package size={24} />
+        <h2 className={styles.sectionTitle}>Productos por Género</h2>
+        <div className={styles.genderStats}>
+          <div className={styles.genderCard}>
+            <div className={styles.genderHeader}>
+              <span className={styles.genderTitle}>Mujeres</span>
+              <span className={styles.genderBadge}>{stats?.productos_mujeres || 0} productos</span>
             </div>
-            <div className={styles.actionContent}>
-              <h3>Gestionar Productos</h3>
-              <p>Ver, agregar o editar productos</p>
+            <div className={styles.genderStats}>
+              <div className={styles.genderStat}>
+                <span className={styles.genderStatLabel}>Con stock</span>
+                <span className={styles.genderStatValue}>{(stats?.productos_mujeres || 0) - (stats?.productos_mujeres_sinstock || 0)}</span>
+              </div>
+              <div className={styles.genderStat}>
+                <span className={styles.genderStatLabel}>Sin stock</span>
+                <span className={styles.genderStatValue}>{stats?.productos_mujeres_sinstock || 0}</span>
+              </div>
             </div>
-            <ArrowRight size={20} className={styles.actionArrow} />
-          </Link>
-
-          <Link to="/pedidos" className={styles.actionCard}>
-            <div className={styles.actionIcon}>
-              <ShoppingCart size={24} />
-            </div>
-            <div className={styles.actionContent}>
-              <h3>Ver Pedidos</h3>
-              <p>Gestionar pedidos de clientes</p>
-            </div>
-            <ArrowRight size={20} className={styles.actionArrow} />
-          </Link>
-        </div>
-      </section>
-
-      {/* Info Card */}
-      <section className={styles.infoSection}>
-        <div className={styles.infoCard}>
-          <div className={styles.infoIcon}>
-            <TrendingUp size={24} />
           </div>
-          <div className={styles.infoContent}>
-            <h3>Sincronización con Catálogo</h3>
-            <p>
-              Los cambios que hagas aquí se reflejarán automáticamente 
-              en tu catálogo público. ¡Mantén tu inventario actualizado!
-            </p>
+          
+          <div className={styles.genderCard}>
+            <div className={styles.genderHeader}>
+              <span className={styles.genderTitle}>Hombres</span>
+              <span className={styles.genderBadge}>{stats?.productos_hombres || 0} productos</span>
+            </div>
+            <div className={styles.genderStats}>
+              <div className={styles.genderStat}>
+                <span className={styles.genderStatLabel}>Con stock</span>
+                <span className={styles.genderStatValue}>{(stats?.productos_hombres || 0) - (stats?.productos_hombres_sinstock || 0)}</span>
+              </div>
+              <div className={styles.genderStat}>
+                <span className={styles.genderStatLabel}>Sin stock</span>
+                <span className={styles.genderStatValue}>{stats?.productos_hombres_sinstock || 0}</span>
+              </div>
+            </div>
           </div>
         </div>
       </section>

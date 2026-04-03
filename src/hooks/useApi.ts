@@ -217,12 +217,29 @@ export function useApi() {
     await loadInitialData();
     
     const activos = productosDb.filter(p => p.activo);
+    
+    // Calcular valor del inventario (precio * stock de cada unidad)
+    let valorInventario = 0;
+    activos.forEach(p => {
+      const precio = parseInt(p.precio.replace(/[$.]/g, '')) || 0;
+      valorInventario += precio * p.stock;
+    });
+    
+    // Productos por género
+    const hombres = activos.filter(p => p.genero === 'hombres');
+    const mujeres = activos.filter(p => p.genero === 'mujeres');
+    
     const stats: DashboardStats = {
       total_productos: activos.length,
       productos_sin_stock: activos.filter(p => p.stock === 0).length,
       total_pedidos: pedidosDb.length,
       pedidos_pendientes: pedidosDb.filter(p => p.estado === 'reservado').length,
-      ingresos_totales: pedidosDb.filter(p => p.estado === 'entregado').reduce((s, p) => s + p.total, 0)
+      ingresos_totales: pedidosDb.filter(p => p.estado === 'entregado').reduce((s, p) => s + p.total, 0),
+      valor_inventario: valorInventario,
+      productos_hombres: hombres.length,
+      productos_mujeres: mujeres.length,
+      productos_hombres_sinstock: hombres.filter(p => p.stock === 0).length,
+      productos_mujeres_sinstock: mujeres.filter(p => p.stock === 0).length
     };
     
     setIsLoading(false);

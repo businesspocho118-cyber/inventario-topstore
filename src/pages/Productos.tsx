@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Plus, Search, Edit2, Trash2, Package, Image as ImageIcon, X, Minus } from 'lucide-react';
 import { useApi } from '../hooks/useApi';
 import { useToast } from '../components/Toast';
@@ -38,6 +38,22 @@ export function Productos() {
   const [editingProducto, setEditingProducto] = useState<Producto | null>(null);
   const [formData, setFormData] = useState<FormData>(initialForm);
   const [imageInput, setImageInput] = useState('');
+
+  // Stats computados dinámicamente según el filtro de género
+  const stats = useMemo(() => {
+    const activos = productos.filter(p => p.activo);
+    let filtered = activos;
+    
+    if (filterGenero !== 'all') {
+      filtered = filtered.filter(p => p.genero === filterGenero);
+    }
+    
+    const total = filtered.length;
+    const sinStock = filtered.filter(p => p.stock === 0).length;
+    const conStock = total - sinStock;
+    
+    return { total, sinStock, conStock };
+  }, [productos, filterGenero]);
 
   useEffect(() => {
     loadProductos();
@@ -261,7 +277,9 @@ export function Productos() {
       <header className={styles.header}>
         <div>
           <h1 className={styles.title}>Inventario</h1>
-          <p className={styles.subtitle}>{productos.length} productos en total</p>
+          <p className={styles.subtitle}>
+            {stats.total} productos ({stats.conStock} con stock • {stats.sinStock} sin stock)
+          </p>
         </div>
       </header>
 
