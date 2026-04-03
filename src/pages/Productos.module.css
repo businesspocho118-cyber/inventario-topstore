@@ -305,6 +305,16 @@
   border-radius: var(--radius-sm);
 }
 
+.tallaLabel {
+  font-size: 11px;
+  font-weight: var(--font-medium);
+  color: var(--color-text-secondary);
+  padding: 2px 8px;
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-sm);
+  margin-left: var(--space-2);
+}
+
 /* Stock display */
 .stockDisplay {
   display: flex;

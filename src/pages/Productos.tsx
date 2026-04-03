@@ -342,15 +342,20 @@ export function Productos() {
                 <h3 className={styles.productName}>{producto.nombre}</h3>
                 <p className={styles.precio}>{producto.precio}</p>
                 
-                {/* Mostrar colores y tallas disponibles */}
-                {producto.colores && producto.tallas && (
+                {/* Mostrar colores como círculos y tallas como texto */}
+                {(producto.colores || producto.tallas) && (
                   <div className={styles.colorCircles}>
-                    <span className={styles.colorStock}>
-                      {producto.colores.split(', ').length} colores
-                    </span>
-                    <span className={styles.tallaItem}>
-                      {producto.tallas.split(', ').length} tallas
-                    </span>
+                    {/* Círculos de colores disponibles */}
+                    {producto.colores && producto.colores.split(', ').filter(c => c.trim()).map((color, idx) => (
+                      <ColorCircle key={color} color={color} size="sm" />
+                    ))}
+                    {/* Mostrar talla si hay una sola, o "X tallas" si hay varias */}
+                    {producto.tallas && producto.tallas.split(', ').filter(t => t.trim()).length === 1 && (
+                      <span className={styles.tallaLabel}>{producto.tallas}</span>
+                    )}
+                    {producto.tallas && producto.tallas.split(', ').filter(t => t.trim()).length > 1 && (
+                      <span className={styles.tallaLabel}>{producto.tallas.split(', ').filter(t => t.trim()).join(', ')}</span>
+                    )}
                   </div>
                 )}
               </div>

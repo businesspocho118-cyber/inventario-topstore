@@ -38,7 +38,7 @@ export function Pedidos() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterEstado, setFilterEstado] = useState<string>('reservado');
   const [clientes, setClientes] = useState<ClienteFidelidad[]>([]);
-  const [activeTab, setActiveTab] = useState<'pendientes' | 'historial'>('pendientes');
+  const [activeTab, setActiveTab] = useState<'todos' | 'reservado' | 'pendiente_entrega' | 'entregado'>('todos');
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [nuevoPedido, setNuevoPedido] = useState<{
@@ -93,15 +93,17 @@ export function Pedidos() {
   }, []);
 
   useEffect(() => {
-    // Aplicar filtros de búsqueda
-    let filtered = activeTab === 'pendientes' 
-      ? pedidos.filter(p => p.estado === 'reservado')
-      : pedidos.filter(p => p.estado !== 'reservado');
+    // Aplicar filtros según la pestaña activa
+    let filtered = pedidos;
     
-    // Si hay un filtro de estado específico en historial
-    if (activeTab === 'historial' && filterEstado !== 'all') {
-      filtered = filtered.filter(p => p.estado === filterEstado);
+    if (activeTab === 'reservado') {
+      filtered = filtered.filter(p => p.estado === 'reservado');
+    } else if (activeTab === 'pendiente_entrega') {
+      filtered = filtered.filter(p => p.estado === 'pendiente_entrega');
+    } else if (activeTab === 'entregado') {
+      filtered = filtered.filter(p => p.estado === 'entregado');
     }
+    // 'todos' muestra todos los pedidos
     
     // Filtro de búsqueda
     if (searchTerm) {
@@ -381,19 +383,31 @@ export function Pedidos() {
         </button>
       </header>
 
-      {/* Tabs para separar pedidos pendientes de historial */}
+      {/* Tabs para separar pedidos por estado */}
       <div className={styles.tabs}>
         <button
-          className={`${styles.tab} ${activeTab === 'pendientes' ? styles.activeTab : ''}`}
-          onClick={() => setActiveTab('pendientes')}
+          className={`${styles.tab} ${activeTab === 'todos' ? styles.activeTab : ''}`}
+          onClick={() => setActiveTab('todos')}
         >
-          Pendientes ({pedidos.filter(p => p.estado === 'reservado').length})
+          Todos ({pedidos.length})
         </button>
         <button
-          className={`${styles.tab} ${activeTab === 'historial' ? styles.activeTab : ''}`}
-          onClick={() => setActiveTab('historial')}
+          className={`${styles.tab} ${activeTab === 'reservado' ? styles.activeTab : ''}`}
+          onClick={() => setActiveTab('reservado')}
         >
-          Historial ({pedidos.filter(p => p.estado !== 'reservado').length})
+          Reservado ({pedidos.filter(p => p.estado === 'reservado').length})
+        </button>
+        <button
+          className={`${styles.tab} ${activeTab === 'pendiente_entrega' ? styles.activeTab : ''}`}
+          onClick={() => setActiveTab('pendiente_entrega')}
+        >
+          Pendiente Entrega ({pedidos.filter(p => p.estado === 'pendiente_entrega').length})
+        </button>
+        <button
+          className={`${styles.tab} ${activeTab === 'entregado' ? styles.activeTab : ''}`}
+          onClick={() => setActiveTab('entregado')}
+        >
+          Entregado ({pedidos.filter(p => p.estado === 'entregado').length})
         </button>
       </div>
 
@@ -409,27 +423,6 @@ export function Pedidos() {
             className={styles.searchInput}
           />
         </div>
-
-        {activeTab === 'historial' && (
-          <div className={styles.filterButtons}>
-            <button
-              className={`${styles.filterBtn} ${filterEstado === 'all' ? styles.active : ''}`}
-              onClick={() => setFilterEstado('all')}
-            >
-              Todos
-            </button>
-            {ESTADOS.map(estado => (
-              <button
-                key={estado}
-                className={`${styles.filterBtn} ${filterEstado === estado ? styles.active : ''}`}
-                onClick={() => setFilterEstado(estado)}
-                disabled={estado === 'reservado'}
-              >
-                {estado === 'reservado' ? 'Reservado' : estado === 'pendiente_entrega' ? 'Pendiente Entrega' : 'Entregado'}
-              </button>
-            ))}
-          </div>
-        )}
       </div>
 
       {/* Pedidos List */}
