@@ -62,6 +62,11 @@ export interface DashboardStats {
   total_pedidos: number;
   pedidos_pendientes: number;
   ingresos_totales: number;
+  valor_inventario: number;
+  productos_hombres: number;
+  productos_mujeres: number;
+  productos_hombres_sinstock: number;
+  productos_mujeres_sinstock: number;
 }
 
 // Tipos para la API
