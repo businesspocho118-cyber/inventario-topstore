@@ -181,31 +181,36 @@ const checkConnection = async () => {
   } catch (e) { supabaseConnected = false; }
 };
 
-// Cargar datos iniciales - PRIORIDAD: localStorage > Supabase > JSON
+// Cargar datos iniciales - PRIORIDAD: Supabase > localStorage > JSON
 const loadInitialData = async () => {
-  // 1. Primero intentar localStorage
-  if (loadFromLocal()) {
-    return;
-  }
-  
-  // 2. Si no hay localStorage, intentar Supabase
+  // Primero verificar conexión a Supabase
   await checkConnection();
+  
   if (supabaseConnected) {
+    // Si hay conexión, cargar desde Supabase (datos más recientes)
     if (await loadFromSupabaseAndSave()) {
       return;
     }
   }
   
-  // 3. Si nada funciona, cargar desde JSON
+  // Si no hay Supabase o falló, intentar localStorage
+  if (loadFromLocal()) {
+    return;
+  }
+  
+  // Si nada funciona, cargar desde JSON
   try {
     const response = await fetch('/data/productos.json');
     const data = await response.json() as { productos: Producto[]; pedidos: Pedido[] };
-    productosDb = data.productos || [];
-    pedidosDb = data.pedidos || [];
-    saveToLocal();
-    console.log('Datos cargados desde JSON');
+    if (data.productos && data.pedidos) {
+      productosDb = data.productos;
+      pedidosDb = data.pedidos;
+      nextProductoId = (productosDb.length ? Math.max(...productosDb.map(p => p.id)) : 0) + 1;
+      nextPedidoId = (pedidosDb.length ? Math.max(...pedidosDb.map(p => p.id)) : 0) + 1;
+      saveToLocal();
+    }
   } catch (e) {
-    console.error('Error loading from JSON:', e);
+    console.error('Error loading JSON:', e);
   }
 };
 
