@@ -78,8 +78,29 @@ const loadFromSupabaseAndSave = async () => {
 const syncOneProductoToSupabase = async (producto: Producto) => {
   if (!supabaseConnected) return;
   try {
-    await supabase.from(TABLES.PRODUCTOS).upsert({ ...producto, updated_at: new Date().toISOString() }, { onConflict: 'id' });
-  } catch (e) { /* ignore */ }
+    // Solo sync los campos básicos que existen en Supabase
+    const productoToSync = { 
+      id: producto.id,
+      product_id: producto.product_id,
+      nombre: producto.nombre,
+      descripcion: producto.descripcion,
+      precio: producto.precio,
+      colores: producto.colores,
+      genero: producto.genero,
+      categoria: producto.categoria,
+      image_paths: producto.image_paths,
+      stock: producto.stock,
+      activo: producto.activo,
+      updated_at: new Date().toISOString()
+      // No sync tallas/unidades - esas son locales nomás
+    };
+    const { error } = await supabase.from(TABLES.PRODUCTOS).upsert(productoToSync, { onConflict: 'id' });
+    if (error) {
+      console.error('Error sync producto:', error.message, error.details);
+    }
+  } catch (e) { 
+    console.error('Exception sync producto:', e);
+  }
 };
 
 // Sync a Supabase - solo el pedido específico
