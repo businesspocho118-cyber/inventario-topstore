@@ -69,6 +69,12 @@ export interface DashboardStats {
   productos_mujeres_sinstock: number;
 }
 
+export interface SyncResult {
+  success: number;
+  removed: number;
+  errors: string[];
+}
+
 // Tipos para la API
 export interface ApiResponse<T> {
   success: boolean;
