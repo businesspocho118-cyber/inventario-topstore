@@ -98,6 +98,8 @@ const syncOneProductoToSupabase = async (producto: Producto) => {
     const { error } = await supabase.from(TABLES.PRODUCTOS).upsert(productoToSync, { onConflict: 'id' });
     if (error) {
       console.error('Error sync producto:', error.message, error.details);
+    } else {
+      console.log('Producto sincronizado:', producto.id, producto.nombre);
     }
   } catch (e) { 
     console.error('Exception sync producto:', e);
@@ -181,24 +183,29 @@ const checkConnection = async () => {
   } catch (e) { supabaseConnected = false; }
 };
 
-// Cargar datos iniciales - PRIORIDAD: Supabase > localStorage > JSON
+// Cargar datos iniciales - PRIORIDAD: localStorage > Supabase > JSON (como estaba antes)
 const loadInitialData = async () => {
-  // Primero verificar conexión a Supabase
-  await checkConnection();
+  // 1. Primero intentar localStorage (más rápido)
+  if (loadFromLocal()) {
+    // Una vez cargado, intentar actualizar desde Supabase en background
+    checkConnection().then(async () => {
+      if (supabaseConnected) {
+        await loadFromSupabaseAndSave();
+        console.log('Datos actualizados desde Supabase en background');
+      }
+    });
+    return;
+  }
   
+  // 2. Si no hay localStorage, intentar Supabase
+  await checkConnection();
   if (supabaseConnected) {
-    // Si hay conexión, cargar desde Supabase (datos más recientes)
     if (await loadFromSupabaseAndSave()) {
       return;
     }
   }
   
-  // Si no hay Supabase o falló, intentar localStorage
-  if (loadFromLocal()) {
-    return;
-  }
-  
-  // Si nada funciona, cargar desde JSON
+  // 3. Si nada funciona, cargar desde JSON
   try {
     const response = await fetch('/data/productos.json');
     const data = await response.json() as { productos: Producto[]; pedidos: Pedido[] };
