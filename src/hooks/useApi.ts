@@ -114,7 +114,7 @@ const syncOnePedidoToSupabase = async (pedido: Pedido) => {
   }
   try {
     console.log('Sincronizando pedido a Supabase:', pedido.id, pedido.cliente_nombre);
-    // Solo campos básicos - sin items por ahora
+    // Solo campos mínimos que definitely existen en la tabla
     const pedidoToSync = {
       id: pedido.id,
       fecha: pedido.fecha,
@@ -123,11 +123,10 @@ const syncOnePedidoToSupabase = async (pedido: Pedido) => {
       cliente_direccion: pedido.cliente_direccion || '',
       cliente_barrio: pedido.cliente_barrio || '',
       cliente_referencias: pedido.cliente_referencias || '',
-      metodo_pago: pedido.metodo_pago,
-      estado: pedido.estado,
-      total: pedido.total,
-      notas: pedido.notas || '',
-      updated_at: new Date().toISOString()
+      metodo_pago: pedido.metodo_pago || 'efectivo',
+      estado: pedido.estado || 'reservado',
+      total: pedido.total || 0,
+      notas: pedido.notas || ''
     };
     const { error } = await supabase.from(TABLES.PEDIDOS).upsert(pedidoToSync, { onConflict: 'id' });
     if (error) {
