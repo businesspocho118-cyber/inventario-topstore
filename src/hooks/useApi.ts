@@ -78,7 +78,7 @@ const loadFromSupabaseAndSave = async () => {
 const syncOneProductoToSupabase = async (producto: Producto) => {
   if (!supabaseConnected) return;
   try {
-    // Solo sync los campos básicos que existen en Supabase
+    // Sync todos los campos incluyendo tallas y unidades
     const productoToSync = { 
       id: producto.id,
       product_id: producto.product_id,
@@ -86,13 +86,14 @@ const syncOneProductoToSupabase = async (producto: Producto) => {
       descripcion: producto.descripcion,
       precio: producto.precio,
       colores: producto.colores,
+      tallas: producto.tallas || '',
       genero: producto.genero,
       categoria: producto.categoria,
       image_paths: producto.image_paths,
       stock: producto.stock,
       activo: producto.activo,
+      unidades: producto.unidades || {},
       updated_at: new Date().toISOString()
-      // No sync tallas/unidades - esas son locales nomás
     };
     const { error } = await supabase.from(TABLES.PRODUCTOS).upsert(productoToSync, { onConflict: 'id' });
     if (error) {
