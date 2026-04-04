@@ -76,12 +76,7 @@ const loadFromSupabaseAndSave = async () => {
 
 // Sync a Supabase (sin espera) - solo el producto específico
 const syncOneProductoToSupabase = async (producto: Producto) => {
-  // Verificar conexión antes de sincronizar
-  await checkConnection();
-  if (!supabaseConnected) {
-    console.log('No hay conexión a Supabase, guardando solo localmente');
-    return;
-  }
+  if (!supabaseConnected) return;
   try {
     // Sync todos los campos incluyendo tallas y unidades
     const productoToSync = { 
@@ -104,7 +99,7 @@ const syncOneProductoToSupabase = async (producto: Producto) => {
     if (error) {
       console.error('Error sync producto:', error.message, error.details);
     } else {
-      console.log('Producto sync OK:', producto.id, producto.nombre);
+      console.log('Producto sincronizado:', producto.id, producto.nombre);
     }
   } catch (e) { 
     console.error('Exception sync producto:', e);
@@ -141,15 +136,8 @@ const syncOneClienteToSupabase = async (cliente: any) => {
 // Suscripciones para sync en tiempo real entre dispositivos
 let subscriptionsSetup = false;
 
-const setupRealtimeSubscriptions = async (onDataChange: () => void) => {
-  if (subscriptionsSetup) return;
-  
-  // Verificar conexión primero
-  await checkConnection();
-  if (!supabaseConnected) {
-    console.log('No hay conexión para suscripciones en tiempo real');
-    return;
-  }
+const setupRealtimeSubscriptions = (onDataChange: () => void) => {
+  if (subscriptionsSetup || !supabaseConnected) return;
   
   try {
     // Suscribirse a cambios en productos
@@ -195,24 +183,29 @@ const checkConnection = async () => {
   } catch (e) { supabaseConnected = false; }
 };
 
-// Cargar datos iniciales - PRIORIDAD: Supabase > localStorage > JSON
+// Cargar datos iniciales - PRIORIDAD: localStorage > Supabase > JSON (como estaba antes)
 const loadInitialData = async () => {
-  // Primero verificar conexión a Supabase
-  await checkConnection();
+  // 1. Primero intentar localStorage (más rápido)
+  if (loadFromLocal()) {
+    // Una vez cargado, intentar actualizar desde Supabase en background
+    checkConnection().then(async () => {
+      if (supabaseConnected) {
+        await loadFromSupabaseAndSave();
+        console.log('Datos actualizados desde Supabase en background');
+      }
+    });
+    return;
+  }
   
+  // 2. Si no hay localStorage, intentar Supabase
+  await checkConnection();
   if (supabaseConnected) {
-    // Si hay conexión, cargar desde Supabase (datos más recientes)
     if (await loadFromSupabaseAndSave()) {
       return;
     }
   }
   
-  // Si no hay Supabase o falló, intentar localStorage
-  if (loadFromLocal()) {
-    return;
-  }
-  
-  // Si nada funciona, cargar desde JSON
+  // 3. Si nada funciona, cargar desde JSON
   try {
     const response = await fetch('/data/productos.json');
     const data = await response.json() as { productos: Producto[]; pedidos: Pedido[] };
@@ -246,14 +239,10 @@ export function useApi() {
     setupSubscriptions();
   }, []);
 
-  // Cuando refreshTrigger cambia, recargar datos desde Supabase
+  // Cuando refreshTrigger cambia, recargar datos
   useEffect(() => {
     if (refreshTrigger > 0) {
-      // Forzar recarga desde Supabase cuando hay cambios
-      loadFromSupabaseAndSave().then(() => {
-        // Trigger re-render
-        setIsLoading(prev => !prev);
-      });
+      loadFromLocal();
     }
   }, [refreshTrigger]);
 
