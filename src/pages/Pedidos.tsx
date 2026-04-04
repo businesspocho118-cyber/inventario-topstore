@@ -50,6 +50,7 @@ export function Pedidos() {
     metodo_pago: 'efectivo' | 'transferencia';
     notas: string;
     items: PedidoItem[];
+    tipo_entrega?: 'tienda' | 'delivery';
   }>({
     cliente_nombre: '',
     cliente_telefono: '',
@@ -58,7 +59,8 @@ export function Pedidos() {
     cliente_referencias: '',
     metodo_pago: 'efectivo',
     notas: '',
-    items: []
+    items: [],
+    tipo_entrega: 'delivery'
   });
   const [productoSeleccionado, setProductoSeleccionado] = useState<number | ''>('');
   const [colorTallaSeleccionado, setColorTallaSeleccionado] = useState<string>('');
@@ -161,6 +163,17 @@ export function Pedidos() {
     setColorTallaSeleccionado('');
     setTipoCliente('nuevo');
     setClienteSeleccionado('');
+    setNuevoPedido({
+      cliente_nombre: '',
+      cliente_telefono: '',
+      cliente_direccion: '',
+      cliente_barrio: '',
+      cliente_referencias: '',
+      metodo_pago: 'efectivo',
+      notas: '',
+      items: [],
+      tipo_entrega: 'delivery'
+    });
   };
 
   const handleClienteExistenteChange = (clienteId: number) => {
@@ -266,14 +279,18 @@ export function Pedidos() {
       return;
     }
     
-    if (!nuevoPedido.cliente_direccion.trim()) {
-      showToast('⚠️ Falta la dirección', 'warning');
-      return;
-    }
-    
-    if (!nuevoPedido.cliente_barrio.trim()) {
-      showToast('⚠️ Falta el barrio', 'warning');
-      return;
+    // Validar dirección solo si es delivery
+    const tipoEntrega = (nuevoPedido as any).tipo_entrega || 'delivery';
+    if (tipoEntrega === 'delivery') {
+      if (!nuevoPedido.cliente_direccion.trim()) {
+        showToast('⚠️ Falta la dirección', 'warning');
+        return;
+      }
+      
+      if (!nuevoPedido.cliente_barrio.trim()) {
+        showToast('⚠️ Falta el barrio', 'warning');
+        return;
+      }
     }
     
     if (nuevoPedido.items.length === 0) {
@@ -590,32 +607,54 @@ export function Pedidos() {
           )}
 
           <div className={styles.formGroup}>
-            <label>Dirección de entrega *</label>
-            <div className={styles.formGrid}>
+            <label>Tipo de Entrega *</label>
+            <div className={styles.tipoClienteRow}>
+              <button
+                type="button"
+                className={`${styles.tipoBtn} ${(nuevoPedido as any).tipo_entrega === 'tienda' ? styles.tipoBtnActive : ''}`}
+                onClick={() => setNuevoPedido(prev => ({ ...prev, tipo_entrega: 'tienda', cliente_direccion: 'Retiro en tienda', cliente_barrio: '' }))}
+              >
+                🏪 Retiro en Tienda
+              </button>
+              <button
+                type="button"
+                className={`${styles.tipoBtn} ${(nuevoPedido as any).tipo_entrega === 'delivery' ? styles.tipoBtnActive : ''}`}
+                onClick={() => setNuevoPedido(prev => ({ ...prev, tipo_entrega: 'delivery' }))}
+              >
+                🚚 Delivery
+              </button>
+            </div>
+          </div>
+
+          {(nuevoPedido as any).tipo_entrega === 'delivery' && (
+            <div className={styles.formGroup}>
+              <label>Dirección de entrega *</label>
+              <div className={styles.formGrid}>
+                <input
+                  type="text"
+                  value={nuevoPedido.cliente_direccion}
+                  onChange={(e) => setNuevoPedido(prev => ({ ...prev, cliente_direccion: e.target.value }))}
+                  className="input"
+                  placeholder="Calle/Carrera #"
+                />
+                <input
+                  type="text"
+                  value={nuevoPedido.cliente_barrio}
+                  onChange={(e) => setNuevoPedido(prev => ({ ...prev, cliente_barrio: e.target.value }))}
+                  className="input"
+                  placeholder="Barrio"
+                />
+              </div>
               <input
                 type="text"
-                value={nuevoPedido.cliente_direccion}
-                onChange={(e) => setNuevoPedido(prev => ({ ...prev, cliente_direccion: e.target.value }))}
+                value={nuevoPedido.cliente_referencias}
+                onChange={(e) => setNuevoPedido(prev => ({ ...prev, cliente_referencias: e.target.value }))}
                 className="input"
-                placeholder="Calle/Carrera #"
-              />
-              <input
-                type="text"
-                value={nuevoPedido.cliente_barrio}
-                onChange={(e) => setNuevoPedido(prev => ({ ...prev, cliente_barrio: e.target.value }))}
-                className="input"
-                placeholder="Barrio"
+                style={{ marginTop: '0.5rem' }}
+                placeholder="Referencias (casa, apartamento, punto de referencia)"
               />
             </div>
-            <input
-              type="text"
-              value={nuevoPedido.cliente_referencias}
-              onChange={(e) => setNuevoPedido(prev => ({ ...prev, cliente_referencias: e.target.value }))}
-              className="input"
-              style={{ marginTop: '0.5rem' }}
-              placeholder="Referencias (casa, apartamento, punto de referencia)"
-            />
-          </div>
+          )}
 
           <div className={styles.formGroup}>
             <label>Método de pago *</label>
