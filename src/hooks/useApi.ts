@@ -76,7 +76,12 @@ const loadFromSupabaseAndSave = async () => {
 
 // Sync a Supabase (sin espera) - solo el producto específico
 const syncOneProductoToSupabase = async (producto: Producto) => {
-  if (!supabaseConnected) return;
+  // Verificar conexión antes de sincronizar
+  await checkConnection();
+  if (!supabaseConnected) {
+    console.log('No hay conexión a Supabase, guardando solo localmente');
+    return;
+  }
   try {
     // Sync todos los campos incluyendo tallas y unidades
     const productoToSync = { 
@@ -98,6 +103,8 @@ const syncOneProductoToSupabase = async (producto: Producto) => {
     const { error } = await supabase.from(TABLES.PRODUCTOS).upsert(productoToSync, { onConflict: 'id' });
     if (error) {
       console.error('Error sync producto:', error.message, error.details);
+    } else {
+      console.log('Producto sync OK:', producto.id, producto.nombre);
     }
   } catch (e) { 
     console.error('Exception sync producto:', e);
@@ -134,8 +141,15 @@ const syncOneClienteToSupabase = async (cliente: any) => {
 // Suscripciones para sync en tiempo real entre dispositivos
 let subscriptionsSetup = false;
 
-const setupRealtimeSubscriptions = (onDataChange: () => void) => {
-  if (subscriptionsSetup || !supabaseConnected) return;
+const setupRealtimeSubscriptions = async (onDataChange: () => void) => {
+  if (subscriptionsSetup) return;
+  
+  // Verificar conexión primero
+  await checkConnection();
+  if (!supabaseConnected) {
+    console.log('No hay conexión para suscripciones en tiempo real');
+    return;
+  }
   
   try {
     // Suscribirse a cambios en productos
@@ -232,10 +246,14 @@ export function useApi() {
     setupSubscriptions();
   }, []);
 
-  // Cuando refreshTrigger cambia, recargar datos
+  // Cuando refreshTrigger cambia, recargar datos desde Supabase
   useEffect(() => {
     if (refreshTrigger > 0) {
-      loadFromLocal();
+      // Forzar recarga desde Supabase cuando hay cambios
+      loadFromSupabaseAndSave().then(() => {
+        // Trigger re-render
+        setIsLoading(prev => !prev);
+      });
     }
   }, [refreshTrigger]);
 
