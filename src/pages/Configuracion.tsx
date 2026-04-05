@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Database, Globe, RefreshCw, AlertCircle, CheckCircle, Trash2 } from 'lucide-react';
+import { Database, Globe, RefreshCw, AlertCircle, CheckCircle, Trash2, Download } from 'lucide-react';
 import { useToast } from '../components/Toast';
 import { useApi } from '../hooks/useApi';
 import type { SyncResult } from '../types';
@@ -52,6 +52,15 @@ export function Configuracion() {
       api.resetData();
       showToast('Datos reseteados. Recargá la página.', 'success');
       setTimeout(() => window.location.reload(), 1000);
+    }
+  };
+
+  const handleExport = () => {
+    try {
+      api.exportToCSV();
+      showToast('✅ Datos exportados correctamente', 'success');
+    } catch (error) {
+      showToast('Error al exportar datos', 'error');
     }
   };
 
@@ -191,6 +200,34 @@ export function Configuracion() {
                 <span className={styles.infoLabel}>Hosting</span>
                 <span className={styles.infoValue}>Cloudflare Pages</span>
               </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Exportar Datos */}
+        <section className={styles.section}>
+          <div className={styles.sectionHeader}>
+            <Download size={20} className={styles.sectionIcon} />
+            <h2>Exportar Datos</h2>
+          </div>
+          <p className={styles.sectionDesc}>
+            Descargá un archivo CSV con todos los productos, pedidos y clientes.
+          </p>
+          <div className={styles.card}>
+            <div className={styles.cardContent}>
+              <div>
+                <h4>Archivo CSV</h4>
+                <p className={styles.statusText}>
+                  Incluye: Productos, Pedidos y Clientes
+                </p>
+              </div>
+              <button 
+                className="btn btn-primary"
+                onClick={handleExport}
+              >
+                <Download size={16} />
+                Exportar Datos
+              </button>
             </div>
           </div>
         </section>

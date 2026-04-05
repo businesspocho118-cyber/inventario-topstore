@@ -604,9 +604,79 @@ export function useApi() {
     return { success, removed, errors };
   }, []);
 
+  // Exportar datos a CSV
+  const exportToCSV = useCallback(() => {
+    // Cargar datos actuales
+    loadFromLocal();
+    
+    const today = new Date().toISOString().split('T')[0];
+    
+    // --- PRODUCTOS ---
+    const productosHeaders = ['ID', 'Nombre', 'Categoría', 'Género', 'Precio', 'Colores', 'Tallas', 'Stock Total'];
+    const productosRows = productosDb
+      .filter(p => p.activo)
+      .map(p => [
+        p.id,
+        `"${p.nombre}"`,
+        p.categoria,
+        p.genero,
+        p.precio,
+        `"${p.colores}"`,
+        `"${p.tallas || ''}"`,
+        p.stock
+      ]);
+    
+    const productosCSV = [productosHeaders.join(','), ...productosRows.map(r => r.join(','))].join('\n');
+    
+    // --- PEDIDOS ---
+    const pedidosHeaders = ['ID', 'Fecha', 'Cliente', 'Teléfono', 'Dirección', 'Barrio', 'Método Pago', 'Estado', 'Total', 'Notas'];
+    const pedidosRows = pedidosDb.map(p => [
+      p.id,
+      p.fecha,
+      `"${p.cliente_nombre}"`,
+      p.cliente_telefono,
+      `"${p.cliente_direccion || ''}"`,
+      `"${p.cliente_barrio || ''}"`,
+      p.metodo_pago || '',
+      p.estado,
+      p.total,
+      `"${p.notas || ''}"`
+    ]);
+    
+    const pedidosCSV = [pedidosHeaders.join(','), ...pedidosRows.map(r => r.join(','))].join('\n');
+    
+    // --- CLIENTES ---
+    const stored = localStorage.getItem(STORAGE_KEYS.clientes);
+    const clientes = stored ? JSON.parse(stored) : [];
+    const clientesHeaders = ['ID', 'Nombre', 'Teléfono', 'Puntos', 'Compras'];
+    const clientesRows = clientes.map((c: any) => [
+      c.id,
+      `"${c.nombre}"`,
+      c.telefono,
+      c.puntos || 0,
+      c.compras || 0
+    ]);
+    
+    const clientesCSV = [clientesHeaders.join(','), ...clientesRows.map(r => r.join(','))].join('\n');
+    
+    // Combinar todo en un solo archivo con separadores
+    const fullCSV = `=== PRODUCTOS ===\n${productosCSV}\n\n=== PEDIDOS ===\n${pedidosCSV}\n\n=== CLIENTES ===\n${clientesCSV}`;
+    
+    // Descargar archivo
+    const blob = new Blob(['\ufeff' + fullCSV], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Inventario_TopStore_${today}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    
+    return { success: true };
+  }, []);
+
   return {
     isLoading, getStats, getProductos, getPedidos, createProducto, updateProducto, deleteProducto,
     createPedido, updatePedidoEstado, deletePedido, getClientes, saveCliente, deleteCliente,
-    getLastSync, resetData, syncWithCatalog
+    getLastSync, resetData, syncWithCatalog, exportToCSV
   };
 }
