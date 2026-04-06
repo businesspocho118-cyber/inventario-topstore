@@ -114,7 +114,6 @@ const syncOnePedidoToSupabase = async (pedido: Pedido) => {
   }
   try {
     console.log('Sincronizando pedido a Supabase:', pedido.id, pedido.cliente_nombre);
-    // Solo campos mínimos que definitely existen en la tabla
     const pedidoToSync = {
       id: pedido.id,
       fecha: pedido.fecha,
@@ -126,7 +125,8 @@ const syncOnePedidoToSupabase = async (pedido: Pedido) => {
       metodo_pago: pedido.metodo_pago || 'efectivo',
       estado: pedido.estado || 'reservado',
       total: pedido.total || 0,
-      notas: pedido.notas || ''
+      notas: pedido.notas || '',
+      items: pedido.items || []
     };
     const { error } = await supabase.from(TABLES.PEDIDOS).upsert(pedidoToSync, { onConflict: 'id' });
     if (error) {
@@ -472,6 +472,25 @@ export function useApi() {
     syncOnePedidoToSupabase(pedidosDb[idx]);
     
     setIsLoading(false);
+
+    return { success: true, data: pedidosDb[idx] };
+  }, []);
+
+  const updatePedido = useCallback(async (id: number, data: Partial<Pedido>): Promise<ApiResponse<Pedido>> => {
+    setIsLoading(true);
+    await loadInitialData();
+    
+    const idx = pedidosDb.findIndex(p => p.id === id);
+    if (idx === -1) {
+      setIsLoading(false);
+      return { success: false, error: 'Pedido no encontrado' };
+    }
+    
+    pedidosDb[idx] = { ...pedidosDb[idx], ...data };
+    saveToLocal();
+    syncOnePedidoToSupabase(pedidosDb[idx]);
+    
+    setIsLoading(false);
     return { success: true, data: pedidosDb[idx] };
   }, []);
 
@@ -643,7 +662,7 @@ export function useApi() {
       `"${p.notas || ''}"`
     ]);
     
-    const pedidosCSV = [pedidosHeaders.join(','), ...pedidosRows.map(r => r.join(','))].join('\n');
+    const pedidosCSV = [pedidosHeaders.join(','), ...pedidosRows.map((r: (string | number)[]) => r.join(','))].join('\n');
     
     // --- CLIENTES ---
     const stored = localStorage.getItem(STORAGE_KEYS.clientes);
@@ -657,7 +676,7 @@ export function useApi() {
       c.compras || 0
     ]);
     
-    const clientesCSV = [clientesHeaders.join(','), ...clientesRows.map(r => r.join(','))].join('\n');
+    const clientesCSV = [clientesHeaders.join(','), ...clientesRows.map((r: (string | number)[]) => r.join(','))].join('\n');
     
     // Combinar todo en un solo archivo con separadores
     const fullCSV = `=== PRODUCTOS ===\n${productosCSV}\n\n=== PEDIDOS ===\n${pedidosCSV}\n\n=== CLIENTES ===\n${clientesCSV}`;
@@ -676,7 +695,7 @@ export function useApi() {
 
   return {
     isLoading, getStats, getProductos, getPedidos, createProducto, updateProducto, deleteProducto,
-    createPedido, updatePedidoEstado, deletePedido, getClientes, saveCliente, deleteCliente,
+    createPedido, updatePedidoEstado, updatePedido, deletePedido, getClientes, saveCliente, deleteCliente,
     getLastSync, resetData, syncWithCatalog, exportToCSV
   };
 }

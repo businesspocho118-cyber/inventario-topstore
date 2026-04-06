@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ShoppingCart, Search, Plus, X, Check, Truck, Package, Clock, Trash2, Users } from 'lucide-react';
+import { ShoppingCart, Search, Plus, X, Check, Truck, Package, Clock, Trash2, Users, Edit2 } from 'lucide-react';
 import { useApi } from '../hooks/useApi';
 import { useToast } from '../components/Toast';
 import { Modal } from '../components/Modal';
@@ -29,7 +29,7 @@ const estadoColors: Record<string, string> = {
 };
 
 export function Pedidos() {
-  const { getPedidos, getProductos, createPedido, updatePedidoEstado, deletePedido, isLoading } = useApi();
+  const { getPedidos, getProductos, createPedido, updatePedido, updatePedidoEstado, deletePedido, isLoading } = useApi();
   const { showToast } = useToast();
   
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
@@ -41,6 +41,8 @@ export function Pedidos() {
   const [activeTab, setActiveTab] = useState<'todos' | 'reservado' | 'pendiente_entrega' | 'entregado'>('todos');
   
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingPedido, setEditingPedido] = useState<Pedido | null>(null);
   const [nuevoPedido, setNuevoPedido] = useState<{
     cliente_nombre: string;
     cliente_telefono: string;
@@ -363,6 +365,58 @@ export function Pedidos() {
     }
   };
 
+  // Editar pedido
+  const handleOpenEditModal = (pedido: Pedido) => {
+    setEditingPedido(pedido);
+    setIsEditModalOpen(true);
+  };
+
+  const handleSavePedido = async () => {
+    if (!editingPedido) return;
+    
+    try {
+      await updatePedido(editingPedido.id, editingPedido);
+      showToast('Pedido actualizado', 'success');
+      setIsEditModalOpen(false);
+      setEditingPedido(null);
+      loadData();
+    } catch (err) {
+      showToast('Error al actualizar pedido', 'error');
+    }
+  };
+
+  const handleEditItemCantidad = (itemIndex: number, cantidad: number) => {
+    if (!editingPedido || !editingPedido.items) return;
+    if (cantidad < 1) return;
+    
+    const item = editingPedido.items[itemIndex];
+    const producto = productos.find(p => p.id === item.producto_id);
+    if (!producto) return;
+    
+    const key = `${item.color}-${item.talla}`;
+    const stockDisponible = producto.unidades?.[key] || 0;
+    
+    if (cantidad > stockDisponible) {
+      showToast(`Stock máximo disponible: ${stockDisponible}`, 'warning');
+      return;
+    }
+    
+    const newItems = [...editingPedido.items];
+    newItems[itemIndex] = { ...newItems[itemIndex], cantidad };
+    
+    // Recalcular total
+    const newTotal = newItems.reduce((sum, i) => sum + i.cantidad * i.precio_unitario, 0);
+    
+    setEditingPedido({ ...editingPedido, items: newItems, total: newTotal });
+  };
+
+  const handleRemoveEditItem = (itemIndex: number) => {
+    if (!editingPedido || !editingPedido.items) return;
+    const newItems = editingPedido.items.filter((_, i) => i !== itemIndex);
+    const newTotal = newItems.reduce((sum, i) => sum + i.cantidad * i.precio_unitario, 0);
+    setEditingPedido({ ...editingPedido, items: newItems, total: newTotal });
+  };
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('es-CO', {
       style: 'currency',
@@ -476,6 +530,13 @@ export function Pedidos() {
                       <Icon size={12} />
                       {pedido.estado}
                     </span>
+                    <button 
+                      className={styles.editBtn}
+                      onClick={() => handleOpenEditModal(pedido)}
+                      title="Editar pedido"
+                    >
+                      <Edit2 size={16} />
+                    </button>
                     <button 
                       className={styles.deleteBtn}
                       onClick={() => handleEliminarPedido(pedido.id)}
@@ -795,6 +856,135 @@ export function Pedidos() {
             </div>
           )}
         </form>
+      </Modal>
+
+      {/* Modal de edición de pedido */}
+      <Modal
+        isOpen={isEditModalOpen}
+        onClose={() => { setIsEditModalOpen(false); setEditingPedido(null); }}
+        title="Editar Pedido"
+        size="lg"
+        footer={
+          <>
+            <button className="btn btn-secondary" onClick={() => { setIsEditModalOpen(false); setEditingPedido(null); }}>
+              Cancelar
+            </button>
+            <button className="btn btn-primary" onClick={handleSavePedido}>
+              Guardar Cambios
+            </button>
+          </>
+        }
+      >
+        {editingPedido && (
+          <div className={styles.form}>
+            {/* Info del cliente */}
+            <div className={styles.formGrid}>
+              <div className={styles.formGroup}>
+                <label>Nombre del Cliente</label>
+                <input
+                  type="text"
+                  value={editingPedido.cliente_nombre}
+                  onChange={(e) => setEditingPedido({ ...editingPedido, cliente_nombre: e.target.value })}
+                  className="input"
+                />
+              </div>
+              <div className={styles.formGroup}>
+                <label>Teléfono</label>
+                <input
+                  type="tel"
+                  value={editingPedido.cliente_telefono}
+                  onChange={(e) => setEditingPedido({ ...editingPedido, cliente_telefono: e.target.value })}
+                  className="input"
+                />
+              </div>
+            </div>
+
+            <div className={styles.formGrid}>
+              <div className={styles.formGroup}>
+                <label>Dirección</label>
+                <input
+                  type="text"
+                  value={editingPedido.cliente_direccion || ''}
+                  onChange={(e) => setEditingPedido({ ...editingPedido, cliente_direccion: e.target.value })}
+                  className="input"
+                />
+              </div>
+              <div className={styles.formGroup}>
+                <label>Barrio</label>
+                <input
+                  type="text"
+                  value={editingPedido.cliente_barrio || ''}
+                  onChange={(e) => setEditingPedido({ ...editingPedido, cliente_barrio: e.target.value })}
+                  className="input"
+                />
+              </div>
+            </div>
+
+            <div className={styles.formGroup}>
+              <label>Referencias</label>
+              <input
+                type="text"
+                value={editingPedido.cliente_referencias || ''}
+                onChange={(e) => setEditingPedido({ ...editingPedido, cliente_referencias: e.target.value })}
+                className="input"
+              />
+            </div>
+
+            <div className={styles.formGroup}>
+              <label>Notas</label>
+              <input
+                type="text"
+                value={editingPedido.notas || ''}
+                onChange={(e) => setEditingPedido({ ...editingPedido, notas: e.target.value })}
+                className="input"
+              />
+            </div>
+
+            {/* Items del pedido */}
+            {editingPedido.items && editingPedido.items.length > 0 && (
+              <div className={styles.formGroup}>
+                <label>Productos</label>
+                {editingPedido.items.map((item, index) => (
+                  <div key={index} className={styles.item}>
+                    <div className={styles.itemInfo}>
+                      <span className={styles.itemNombre}>{item.producto_nombre}</span>
+                      <span className={styles.itemColor}>{item.color} / {item.talla}</span>
+                    </div>
+                    <div className={styles.itemCantidad}>
+                      <button 
+                        type="button"
+                        onClick={() => handleEditItemCantidad(index, item.cantidad - 1)}
+                      >
+                        -
+                      </button>
+                      <span>{item.cantidad}</span>
+                      <button 
+                        type="button"
+                        onClick={() => handleEditItemCantidad(index, item.cantidad + 1)}
+                      >
+                        +
+                      </button>
+                    </div>
+                    <span className={styles.itemPrecio}>
+                      {formatCurrency(item.cantidad * item.precio_unitario)}
+                    </span>
+                    <button 
+                      type="button"
+                      className={styles.removeItem}
+                      onClick={() => handleRemoveEditItem(index)}
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                ))}
+                <div className={styles.totalRow}>
+                  <strong>Total</strong>
+                  <strong>{formatCurrency(editingPedido.total)}</strong>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </Modal>
     </div>
   );

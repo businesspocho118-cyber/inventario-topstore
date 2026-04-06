@@ -237,6 +237,25 @@
   color: white;
 }
 
+.editBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: rgba(59, 130, 246, 0.1);
+  color: var(--color-accent-primary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.editBtn:hover {
+  background: var(--color-accent-primary);
+  color: white;
+}
+
 .cardBody {
   padding: var(--space-5);
 }
