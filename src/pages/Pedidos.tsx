@@ -12,6 +12,9 @@ interface ClienteFidelidad {
   nombre: string;
   telefono: string;
   compras: number;
+  direccion?: string;
+  barrio?: string;
+  referencias?: string;
 }
 
 const ESTADOS = ['reservado', 'pendiente_entrega', 'entregado'] as const;
@@ -68,6 +71,7 @@ export function Pedidos() {
   const [colorTallaSeleccionado, setColorTallaSeleccionado] = useState<string>('');
   const [tipoCliente, setTipoCliente] = useState<'nuevo' | 'existente'>('nuevo');
   const [clienteSeleccionado, setClienteSeleccionado] = useState<number | ''>('');
+  const [usarDireccionExistente, setUsarDireccionExistente] = useState<boolean>(true);
 
   // Load data on mount and when window regains focus
   useEffect(() => {
@@ -165,6 +169,7 @@ export function Pedidos() {
     setColorTallaSeleccionado('');
     setTipoCliente('nuevo');
     setClienteSeleccionado('');
+    setUsarDireccionExistente(true);
     setNuevoPedido({
       cliente_nombre: '',
       cliente_telefono: '',
@@ -180,12 +185,16 @@ export function Pedidos() {
 
   const handleClienteExistenteChange = (clienteId: number) => {
     setClienteSeleccionado(clienteId);
+    setUsarDireccionExistente(true); // Reset to use existing address by default
     const cliente = clientes.find(c => Number(c.id) === clienteId);
     if (cliente) {
       setNuevoPedido(prev => ({
         ...prev,
         cliente_nombre: cliente.nombre,
-        cliente_telefono: cliente.telefono
+        cliente_telefono: cliente.telefono,
+        cliente_direccion: cliente.direccion || '',
+        cliente_barrio: cliente.barrio || '',
+        cliente_referencias: cliente.referencias || ''
       }));
     }
   };
@@ -317,6 +326,30 @@ export function Pedidos() {
           talla: item.talla || ''
         }))
       });
+
+      // Si es cliente existente y decidió cambiar la dirección, actualizar en localStorage
+      if (tipoCliente === 'existente' && clienteSeleccionado && !usarDireccionExistente) {
+        try {
+          const stored = localStorage.getItem('topstore_clientes_fidelidad');
+          if (stored) {
+            const clientesActualizados = JSON.parse(stored).map((c: ClienteFidelidad) => {
+              if (Number(c.id) === Number(clienteSeleccionado)) {
+                return {
+                  ...c,
+                  direccion: nuevoPedido.cliente_direccion,
+                  barrio: nuevoPedido.cliente_barrio,
+                  referencias: nuevoPedido.cliente_referencias
+                };
+              }
+              return c;
+            });
+            localStorage.setItem('topstore_clientes_fidelidad', JSON.stringify(clientesActualizados));
+            setClientes(clientesActualizados);
+          }
+        } catch (err) {
+          console.error('Error al actualizar dirección del cliente:', err);
+        }
+      }
       
       if (result.success) {
         // Recargar pedidos y productos
@@ -687,7 +720,42 @@ export function Pedidos() {
             </div>
           </div>
 
-          {(nuevoPedido as any).tipo_entrega === 'delivery' && (
+          {/* Opción de dirección para cliente existente */}
+          {tipoCliente === 'existente' && clienteSeleccionado && (nuevoPedido as any).tipo_entrega === 'delivery' && (
+            <div className={styles.formGroup}>
+              <label>Dirección de entrega</label>
+              <div className={styles.direccionToggle}>
+                <label className={styles.checkboxLabel}>
+                  <input
+                    type="checkbox"
+                    checked={usarDireccionExistente}
+                    onChange={(e) => {
+                      setUsarDireccionExistente(e.target.checked);
+                      if (e.target.checked) {
+                        const cliente = clientes.find(c => Number(c.id) === Number(clienteSeleccionado));
+                        if (cliente) {
+                          setNuevoPedido(prev => ({
+                            ...prev,
+                            cliente_direccion: cliente.direccion || '',
+                            cliente_barrio: cliente.barrio || '',
+                            cliente_referencias: cliente.referencias || ''
+                          }));
+                        }
+                      }
+                    }}
+                  />
+                  Usar dirección guardada del cliente
+                </label>
+                {!usarDireccionExistente && (
+                  <p style={{ fontSize: '0.75rem', color: '#666', marginTop: '0.25rem' }}>
+                    ✏️ Al guardar el pedido, se actualizará la dirección del cliente
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {(nuevoPedido as any).tipo_entrega === 'delivery' && (tipoCliente === 'nuevo' || !clienteSeleccionado || !usarDireccionExistente) && (
             <div className={styles.formGroup}>
               <label>Dirección de entrega *</label>
               <div className={styles.formGrid}>
