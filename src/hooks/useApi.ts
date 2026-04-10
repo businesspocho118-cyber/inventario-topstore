@@ -238,6 +238,9 @@ const checkConnection = async () => {
   } catch (e) { supabaseConnected = false; }
 };
 
+// Nueva función para verificar si hay conexión a Supabase
+const isSupabaseConnected = () => supabaseConnected;
+
 // Cargar datos iniciales - PRIORIDAD: localStorage > Supabase > JSON (como estaba antes)
 const loadInitialData = async () => {
   console.log('[Init] Iniciando carga de datos...');
@@ -787,6 +790,8 @@ export function useApi() {
   return {
     isLoading, getStats, getProductos, getPedidos, createProducto, updateProducto, deleteProducto,
     createPedido, updatePedidoEstado, updatePedido, deletePedido, getClientes, saveCliente, deleteCliente,
-    getLastSync, resetData, syncWithCatalog, exportToCSV
+    getLastSync, resetData, syncWithCatalog, exportToCSV,
+    // Exportar funciones internas para forzar recarga desde Supabase
+    checkConnection, loadFromSupabaseAndSave, isSupabaseConnected
   };
 }

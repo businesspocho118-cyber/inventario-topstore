@@ -27,7 +27,7 @@ const initialForm: FormData = {
 };
 
 export function Productos() {
-  const { getProductos, createProducto, updateProducto, deleteProducto, isLoading } = useApi();
+  const { getProductos, createProducto, updateProducto, deleteProducto, isLoading, checkConnection, loadFromSupabaseAndSave, isSupabaseConnected } = useApi();
   const { showToast } = useToast();
   
   const [productos, setProductos] = useState<Producto[]>([]);
@@ -59,19 +59,33 @@ export function Productos() {
     loadProductos();
     
     // Recargar cuando la ventana recibe foco
-    const handleFocus = () => {
+    const handleFocus = async () => {
+      console.log('Ventana recibieron foco - recargando productos desde Supabase...');
+      await checkConnection();
+      if (isSupabaseConnected()) {
+        await loadFromSupabaseAndSave();
+      }
       loadProductos();
     };
     
-    const handleVisibilityChange = () => {
+    const handleVisibilityChange = async () => {
       if (!document.hidden) {
+        console.log('Página visible - recargando productos desde Supabase...');
+        await checkConnection();
+        if (isSupabaseConnected()) {
+          await loadFromSupabaseAndSave();
+        }
         loadProductos();
       }
     };
     
     // Recargar cada 30 segundos para mantener sincronizado entre dispositivos
-    const syncInterval = setInterval(() => {
+    const syncInterval = setInterval(async () => {
       console.log('[Auto-sync] Recargando productos cada 30 segundos...');
+      await checkConnection();
+      if (isSupabaseConnected()) {
+        await loadFromSupabaseAndSave();
+      }
       loadProductos();
     }, 30000);
     
