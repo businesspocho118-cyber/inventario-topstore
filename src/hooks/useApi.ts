@@ -600,10 +600,19 @@ export function useApi() {
         } catch (e) { errors.push(`Error: ${e}`); }
       });
       
-      // IMPORTANTE: Guardar en localStorage después de sincronizar
+      console.log('[Sync] Productos nuevos agregados:', success);
+      
+      // Guardar en localStorage los productos nuevos agregados
       saveToLocal();
-      // Sync todos los productos a Supabase
-      for (const p of productosDb) {
+      
+      // Sync todos los productos a Supabase (solo los nuevos productos para no sobrescribir)
+      // Pero primero esperar a que las suscripciones detecten el cambio
+      for (const p of productosDb.filter(p => {
+        // Solo sync productos que fueron creados en este sync
+        if (!p.created_at) return false;
+        const syncTime = new Date(p.created_at).getTime();
+        return Date.now() - syncTime < 60000; // productos creados en el último minuto
+      })) {
         await syncOneProductoToSupabase(p);
       }
     } catch (e) { errors.push(`Conexión: ${e}`); }
