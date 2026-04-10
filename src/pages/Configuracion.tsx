@@ -27,16 +27,8 @@ export function Configuracion() {
     try {
       const result = await api.syncWithCatalog();
       // Siempre mostrar éxito si el catálogo se sincronizó (aunque haya errores menores en Supabase)
-      if (result.success) {
-        const syncResult = result as unknown as SyncResult;
-        const { success, errors } = syncResult;
-        if (errors.length > 0 && errors.some((e: string) => e.includes('Conexión'))) {
-          // Error de conexión con el catálogo
-          showToast('Error de conexión con el catálogo', 'error');
-        } else {
-          // Todo bien - aunque haya algunos errores menores, mostrar éxito
-          showToast(`✅ ${success} productos sincronizados desde el catálogo`, 'success');
-        }
+      if (result.catalogoOk) {
+        showToast(`✅ ${result.success} productos sincronizados desde el catálogo`, 'success');
         setLastSync(api.getLastSync() || new Date().toISOString());
       } else {
         showToast('Error al conectar con el catálogo', 'error');

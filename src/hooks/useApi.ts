@@ -560,6 +560,7 @@ export function useApi() {
     const errors: string[] = [];
     let success = 0;
     let removed = 0;
+    let catalogoProcesado = false;
     
     try {
       const response = await fetch(CATALOG_URL);
@@ -573,6 +574,7 @@ export function useApi() {
       // El catálogo usa .preview-card que también tiene la clase .product-card
       const cards = doc.querySelectorAll('.preview-card.product-card');
       console.log('[Sync] Productos encontrados en catálogo:', cards.length);
+      catalogoProcesado = true;
       const catalogIds: string[] = [];
       
       cards.forEach(card => {
@@ -618,7 +620,9 @@ export function useApi() {
     } catch (e) { errors.push(`Conexión: ${e}`); }
     
     setIsLoading(false);
-    return { success, removed, errors };
+    // Retornar success > 0 para indicar que el catálogo se procesó correctamente
+    // aunque no haya productos nuevos (porque ya existían todos)
+    return { success, removed, errors, catalogoOk: success > 0 || catalogoProcesado };
   }, []);
 
   // Exportar datos a CSV
