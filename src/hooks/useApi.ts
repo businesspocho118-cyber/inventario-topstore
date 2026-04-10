@@ -357,7 +357,20 @@ export function useApi() {
 
   const updateProducto = useCallback(async (id: number, req: UpdateProductoRequest): Promise<ApiResponse<Producto>> => {
     setIsLoading(true);
-    await loadInitialData();
+    // ALWAYS recargar desde Supabase antes de modificar para tener datos frescos
+    await checkConnection();
+    if (supabaseConnected) {
+      const { data: supabaseData } = await supabase.from(TABLES.PRODUCTOS).select('*').eq('id', id).single();
+      if (supabaseData) {
+        // Actualizar productosDb con datos frescos de Supabase
+        const idx = productosDb.findIndex(p => p.id === id);
+        if (idx !== -1) {
+          productosDb[idx] = supabaseData;
+        }
+        // También guardar en localStorage
+        localStorage.setItem(STORAGE_KEYS.productos, JSON.stringify(productosDb));
+      }
+    }
     
     const idx = productosDb.findIndex(p => p.id === id);
     if (idx === -1) {
@@ -365,10 +378,13 @@ export function useApi() {
       return { success: false, error: 'Producto no encontrado' };
     }
     
+    console.log('[Update] Actualizando producto:', id, req);
     productosDb[idx] = { ...productosDb[idx], ...req, updated_at: new Date().toISOString() };
+    console.log('[Update] Producto actualizado:', productosDb[idx].product_id, 'stock:', productosDb[idx].stock);
     saveToLocal();
     // Await para asegurar que termine antes de que el usuario cierre o recargue
     await syncOneProductoToSupabase(productosDb[idx]);
+    console.log('[Update] Sync completado');
     
     setIsLoading(false);
     return { success: true, data: productosDb[idx] };
