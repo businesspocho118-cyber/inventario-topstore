@@ -635,18 +635,18 @@ export function useApi() {
           
           if (existIdx === -1) {
             // Producto nuevo - agregarlo
-            console.log('[Sync] Agregando producto nuevo:', productId, name);
+            console.log('[Sync] 🆕 AGREGANDO:', productId, '-', name);
             productosDb.push({ id: nextProductoId++, product_id: productId, nombre: name, descripcion: '', precio: price, colores: colors, tallas: '', unidades: {}, genero: validGender, categoria: '', image_paths: imagePaths, stock: 0, activo: true, created_at: new Date().toISOString(), updated_at: new Date().toISOString() });
             success++;
-          } else {
-            console.log('[Sync] Producto ya existe:', productId, name);
           }
           // Si ya existe, NO hacer nada - mantener datos locales intactos
         } catch (e) { errors.push(`Error: ${e}`); }
       });
       
-      console.log('[Sync] Productos nuevos agregados:', success);
-      console.log('[Sync] Total productos en DB después de sync:', productosDb.length);
+      console.log('[Sync] ✅ Productos nuevos agregados:', success);
+      console.log('[Sync] 📦 Total productos en inventario:', productosDb.length);
+      console.log('[Sync] 📋 IDs en catálogo:', catalogIds);
+      console.log('[Sync] 📋 IDs en inventario:', productosDb.map(p => p.product_id));
       
       // Guardar en localStorage los productos nuevos agregados
       saveToLocal();
