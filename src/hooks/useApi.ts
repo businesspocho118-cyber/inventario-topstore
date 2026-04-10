@@ -566,7 +566,8 @@ export function useApi() {
       const html = await response.text();
       const parser = new DOMParser();
       const doc = parser.parseFromString(html, 'text/html');
-      const cards = doc.querySelectorAll('.product-card');
+      // El catálogo usa .preview-card que también tiene la clase .product-card
+      const cards = doc.querySelectorAll('.preview-card.product-card');
       const catalogIds: string[] = [];
       
       cards.forEach(card => {
