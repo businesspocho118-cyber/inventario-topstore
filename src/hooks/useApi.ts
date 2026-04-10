@@ -206,7 +206,6 @@ const loadInitialData = async () => {
     checkConnection().then(async () => {
       if (supabaseConnected) {
         await loadFromSupabaseAndSave();
-        console.log('Datos actualizados desde Supabase en background');
       }
     });
     return;
@@ -505,14 +504,9 @@ export function useApi() {
       return { success: false, error: 'Pedido no encontrado' };
     }
     
-    console.log('Eliminando pedido con ID:', id);
-    
     // Primero eliminar de Supabase
     if (supabaseConnected) {
-      const { error } = await supabase.from(TABLES.PEDIDOS).delete().eq('id', id);
-      console.log('Resultado eliminación Supabase:', error ? 'Error: ' + error.message : 'OK');
-    } else {
-      console.log('No hay conexión a Supabase para eliminar');
+      await supabase.from(TABLES.PEDIDOS).delete().eq('id', id);
     }
     
     // Luego eliminar localmente
