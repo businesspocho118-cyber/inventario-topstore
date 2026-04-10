@@ -91,12 +91,19 @@ export function Pedidos() {
       }
     };
     
+    // Recargar cada 30 segundos para mantener sincronizado entre dispositivos
+    const syncInterval = setInterval(() => {
+      console.log('[Auto-sync] Recargando pedidos cada 30 segundos...');
+      loadData();
+    }, 30000);
+    
     window.addEventListener('focus', handleFocus);
     document.addEventListener('visibilitychange', handleVisibilityChange);
     
     return () => {
       window.removeEventListener('focus', handleFocus);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      clearInterval(syncInterval);
     };
   }, []);
 
