@@ -142,6 +142,10 @@ let lastSyncTime = 0;
 const SYNC_COOLDOWN = 3000; // 3 segundos entre sincronizaciones para evitar loops
 
 const setupRealtimeSubscriptions = (onDataChange: () => void) => {
+  // Deshabilitado: las suscripciones en tiempo real causaban loops de sincronización
+  // El sync ahora es manual desde Configuración
+  return;
+  
   if (subscriptionsSetup || !supabaseConnected) return;
   
   try {
@@ -202,12 +206,7 @@ const checkConnection = async () => {
 const loadInitialData = async () => {
   // 1. Primero intentar localStorage (más rápido)
   if (loadFromLocal()) {
-    // Una vez cargado, intentar actualizar desde Supabase en background
-    checkConnection().then(async () => {
-      if (supabaseConnected) {
-        await loadFromSupabaseAndSave();
-      }
-    });
+    // NO hacer sync automático en background - el usuario sync manualmente desde Configuración
     return;
   }
   
@@ -241,16 +240,7 @@ export function useApi() {
 
   // Efecto para configurar suscripciones en tiempo real (solo una vez)
   useEffect(() => {
-    const setupSubscriptions = async () => {
-      await checkConnection();
-      if (supabaseConnected) {
-        setupRealtimeSubscriptions(() => {
-          // Cuando hay cambio en Supabase, actualizar el estado para re-render
-          setRefreshTrigger(t => t + 1);
-        });
-      }
-    };
-    setupSubscriptions();
+    // Suscripciones deshabilitadas - sync manual desde Configuración
   }, []);
 
   // Cuando refreshTrigger cambia, recargar datos
