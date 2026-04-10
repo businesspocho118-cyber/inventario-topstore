@@ -262,13 +262,13 @@ export function Productos() {
   // Cuando cambian las tallas, limpiar unidades que ya no existen
   const handleTallasChange = (newTallas: string) => {
     setFormData(prev => {
-      const colorList = (prev.colores || '').split(', ').filter(c => c.trim());
-      const tallaList = newTallas.split(', ').filter(t => t.trim());
+      const colorList = (prev.colores || '').split(', ').filter((c: string) => c.trim());
+      const tallaList = newTallas.split(', ').filter((t: string) => t.trim());
       const newUnidades: Record<string, number> = {};
       
       // Mantener solo las combinaciones que siguen siendo válidas
-      colorList.forEach(color => {
-        tallaList.forEach(talla => {
+      colorList.forEach((color: string) => {
+        tallaList.forEach((talla: string) => {
           const key = `${color}-${talla}`;
           if (prev.unidades && prev.unidades[key] !== undefined) {
             newUnidades[key] = prev.unidades[key];
@@ -496,13 +496,55 @@ export function Productos() {
 
             <div className={styles.formGroup}>
               <label>Colores</label>
-              <input
-                type="text"
-                value={formData.colores}
-                onChange={(e) => handleColorsChange(e.target.value)}
-                className="input"
-                placeholder="Negro, Blanco, Gris"
-              />
+              <div className={styles.coloresTags}>
+                {(formData.colores || '').split(', ').filter((c: string) => c.trim()).map((color: string) => (
+                  <span key={color} className={styles.colorTag}>
+                    <ColorCircle color={color} size="sm" />
+                    {color}
+                    <button 
+                      type="button" 
+                      onClick={() => {
+                        const newColors = (formData.colores || '').split(', ').filter((c: string) => c.trim()).filter(c => c !== color);
+                        setFormData({...formData, colores: newColors.join(', ')});
+                      }}
+                      className={styles.removeColor}
+                    >×</button>
+                  </span>
+                ))}
+                <input
+                  type="text"
+                  list="coloresPredefinidos"
+                  placeholder="+ Añadir color"
+                  className={styles.colorInput}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && e.currentTarget.value.trim()) {
+                      const newColor = e.currentTarget.value.trim();
+                      const currentColors = (formData.colores || '').split(', ').filter((c: string) => c.trim());
+                      if (!currentColors.includes(newColor)) {
+                        setFormData({
+                          ...formData,
+                          colores: [...currentColors, newColor].join(', ')
+                        });
+                      }
+                      e.currentTarget.value = '';
+                    }
+                  }}
+                />
+                <datalist id="coloresPredefinidos">
+                  <option value="Negro" />
+                  <option value="Blanco" />
+                  <option value="Gris" />
+                  <option value="Azul" />
+                  <option value="Rojo" />
+                  <option value="Verde" />
+                  <option value="Rosa" />
+                  <option value="Morado" />
+                  <option value="Café" />
+                  <option value="Vino Tinto" />
+                  <option value="Azul Oscuro" />
+                  <option value="Azul Claro" />
+                </datalist>
+              </div>
             </div>
           </div>
 

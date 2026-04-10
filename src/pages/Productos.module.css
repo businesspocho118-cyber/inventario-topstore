@@ -495,9 +495,67 @@
     justify-content: center;
   }
 
-  .formGrid {
+.formGrid {
     grid-template-columns: 1fr;
   }
+}
+
+/* Color Tags */
+.coloresTags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-md);
+  min-height: 44px;
+  align-items: center;
+}
+
+.colorTag {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-full);
+  font-size: var(--text-sm);
+  color: var(--color-text-primary);
+}
+
+.removeColor {
+  background: none;
+  border: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  padding: 0;
+  font-size: var(--text-lg);
+  line-height: 1;
+  margin-left: var(--space-1);
+}
+
+.removeColor:hover {
+  color: var(--color-accent-primary);
+}
+
+.colorInput {
+  flex: 1;
+  min-width: 100px;
+  background: transparent;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-full);
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--color-text-primary);
+}
+
+.colorInput:focus {
+  outline: none;
+  border-color: var(--color-accent-primary);
+}
+
+.colorInput::placeholder {
+  color: var(--color-text-secondary);
 }
 
 /* Unidades Editor (Color+Talla together) */
