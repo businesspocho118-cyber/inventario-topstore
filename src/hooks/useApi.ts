@@ -510,7 +510,20 @@ export function useApi() {
 
   const updatePedidoEstado = useCallback(async (id: number, estado: string): Promise<ApiResponse<Pedido>> => {
     setIsLoading(true);
-    await loadInitialData();
+    // ALWAYS recargar desde Supabase antes de modificar para tener datos frescos
+    await checkConnection();
+    if (supabaseConnected) {
+      const { data: supabaseData } = await supabase.from(TABLES.PEDIDOS).select('*').eq('id', id).single();
+      if (supabaseData) {
+        // Actualizar pedidosDb con datos frescos de Supabase
+        const idx = pedidosDb.findIndex(p => p.id === id);
+        if (idx !== -1) {
+          pedidosDb[idx] = supabaseData;
+        }
+        // También guardar en localStorage
+        localStorage.setItem(STORAGE_KEYS.pedidos, JSON.stringify(pedidosDb));
+      }
+    }
     
     const idx = pedidosDb.findIndex(p => p.id === id);
     if (idx === -1) {
@@ -518,9 +531,11 @@ export function useApi() {
       return { success: false, error: 'Pedido no encontrado' };
     }
     
+    console.log('[UpdatePedido] Cambiando estado:', id, 'de', pedidosDb[idx].estado, 'a', estado);
     pedidosDb[idx].estado = estado as Pedido['estado'];
     saveToLocal();
-    syncOnePedidoToSupabase(pedidosDb[idx]);
+    await syncOnePedidoToSupabase(pedidosDb[idx]);
+    console.log('[UpdatePedido] Sync completado');
     
     setIsLoading(false);
 
@@ -529,7 +544,18 @@ export function useApi() {
 
   const updatePedido = useCallback(async (id: number, data: Partial<Pedido>): Promise<ApiResponse<Pedido>> => {
     setIsLoading(true);
-    await loadInitialData();
+    // ALWAYS recargar desde Supabase antes de modificar para tener datos frescos
+    await checkConnection();
+    if (supabaseConnected) {
+      const { data: supabaseData } = await supabase.from(TABLES.PEDIDOS).select('*').eq('id', id).single();
+      if (supabaseData) {
+        const idx = pedidosDb.findIndex(p => p.id === id);
+        if (idx !== -1) {
+          pedidosDb[idx] = supabaseData;
+        }
+        localStorage.setItem(STORAGE_KEYS.pedidos, JSON.stringify(pedidosDb));
+      }
+    }
     
     const idx = pedidosDb.findIndex(p => p.id === id);
     if (idx === -1) {
@@ -539,7 +565,7 @@ export function useApi() {
     
     pedidosDb[idx] = { ...pedidosDb[idx], ...data };
     saveToLocal();
-    syncOnePedidoToSupabase(pedidosDb[idx]);
+    await syncOnePedidoToSupabase(pedidosDb[idx]);
     
     setIsLoading(false);
     return { success: true, data: pedidosDb[idx] };
