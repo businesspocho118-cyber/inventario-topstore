@@ -511,22 +511,7 @@ export function Productos() {
                     >×</button>
                   </span>
                 ))}
-                {/* Color picker para agregar colores fácilmente */}
-                <input
-                  type="color"
-                  className={styles.colorPicker}
-                  title="Seleccionar color"
-                  onChange={(e) => {
-                    const newColor = e.target.value;
-                    const currentColors = (formData.colores || '').split(', ').filter((c: string) => c.trim());
-                    if (!currentColors.includes(newColor)) {
-                      setFormData({
-                        ...formData,
-                        colores: [...currentColors, newColor].join(', ')
-                      });
-                    }
-                  }}
-                />
+                {/* Solo input de texto - sin color picker automático */}
                 <input
                   type="text"
                   list="coloresPredefinidos"
