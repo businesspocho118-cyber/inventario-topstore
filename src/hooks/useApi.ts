@@ -42,12 +42,9 @@ const loadFromLocal = () => {
 // Cargar desde Supabase cuando no hay localStorage
 const loadFromSupabaseAndSave = async () => {
   try {
-    console.log('Cargando datos desde Supabase...');
     const { data: productosData } = await supabase.from(TABLES.PRODUCTOS).select('*').eq('activo', true).order('id');
     const { data: pedidosData } = await supabase.from(TABLES.PEDIDOS).select('*').order('id');
     const { data: clientesData } = await supabase.from(TABLES.CLIENTES).select('*').order('compras', { ascending: false });
-    
-    console.log('Desde Supabase:', productosData?.length || 0, 'productos,', pedidosData?.length || 0, 'pedidos,', clientesData?.length || 0, 'clientes');
     
     if (productosData && productosData.length > 0) {
       productosDb = productosData;
@@ -66,10 +63,8 @@ const loadFromSupabaseAndSave = async () => {
     
     // GUARDAR en localStorage después de cargar de Supabase
     saveToLocal();
-    console.log('Datos cargados desde Supabase y guardados en localStorage');
     return true;
   } catch (e) {
-    console.error('Error loading from Supabase:', e);
     return false;
   }
 };
@@ -79,7 +74,7 @@ const syncOneProductoToSupabase = async (producto: Producto) => {
   if (!supabaseConnected) return;
   try {
     // Sync todos los campos incluyendo tallas y unidades
-    const productoToSync = { 
+    const productoToSync = {
       id: producto.id,
       product_id: producto.product_id,
       nombre: producto.nombre,
@@ -98,8 +93,6 @@ const syncOneProductoToSupabase = async (producto: Producto) => {
     const { error } = await supabase.from(TABLES.PRODUCTOS).upsert(productoToSync, { onConflict: 'id' });
     if (error) {
       console.error('Error sync producto:', error.message, error.details);
-    } else {
-      console.log('Producto sincronizado:', producto.id, producto.nombre);
     }
   } catch (e) { 
     console.error('Exception sync producto:', e);
@@ -109,11 +102,9 @@ const syncOneProductoToSupabase = async (producto: Producto) => {
 // Sync a Supabase - solo el pedido específico
 const syncOnePedidoToSupabase = async (pedido: Pedido) => {
   if (!supabaseConnected) {
-    console.log('No hay conexión a Supabase para sync pedido');
     return;
   }
   try {
-    console.log('Sincronizando pedido a Supabase:', pedido.id, pedido.cliente_nombre);
     const pedidoToSync = {
       id: pedido.id,
       fecha: pedido.fecha,
@@ -131,8 +122,6 @@ const syncOnePedidoToSupabase = async (pedido: Pedido) => {
     const { error } = await supabase.from(TABLES.PEDIDOS).upsert(pedidoToSync, { onConflict: 'id' });
     if (error) {
       console.error('Error sync pedido:', error.message, error.details);
-    } else {
-      console.log('Pedido sync OK:', pedido.id);
     }
   } catch (e) {
     console.error('Exception sync pedido:', e);
@@ -149,6 +138,8 @@ const syncOneClienteToSupabase = async (cliente: any) => {
 
 // Suscripciones para sync en tiempo real entre dispositivos
 let subscriptionsSetup = false;
+let lastSyncTime = 0;
+const SYNC_COOLDOWN = 3000; // 3 segundos entre sincronizaciones para evitar loops
 
 const setupRealtimeSubscriptions = (onDataChange: () => void) => {
   if (subscriptionsSetup || !supabaseConnected) return;
@@ -157,29 +148,39 @@ const setupRealtimeSubscriptions = (onDataChange: () => void) => {
     // Suscribirse a cambios en productos
     supabase.channel('productos-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: TABLES.PRODUCTOS }, async () => {
-        // Cuando hay cambio en Supabase, recargar datos
-        await loadFromSupabaseAndSave();
-        onDataChange();
+        // Solo recargar si pasaron más de 3 segundos desde el último sync (evitar loops)
+        const now = Date.now();
+        if (now - lastSyncTime > SYNC_COOLDOWN) {
+          lastSyncTime = now;
+          await loadFromSupabaseAndSave();
+          onDataChange();
+        }
       })
       .subscribe();
 
     // Suscribirse a cambios en pedidos
     supabase.channel('pedidos-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: TABLES.PEDIDOS }, async (payload) => {
-        console.log('Cambio en pedidos detectado:', payload.eventType);
-        await loadFromSupabaseAndSave();
-        onDataChange();
+        const now = Date.now();
+        if (now - lastSyncTime > SYNC_COOLDOWN) {
+          lastSyncTime = now;
+          await loadFromSupabaseAndSave();
+          onDataChange();
+        }
       })
       .subscribe();
 
     // Suscribirse a cambios en clientes
     supabase.channel('clientes-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: TABLES.CLIENTES }, async () => {
-        const { data } = await supabase.from(TABLES.CLIENTES).select('*').order('compras', { ascending: false });
-        if (data) {
-          localStorage.setItem(STORAGE_KEYS.clientes, JSON.stringify(data));
-          console.log('Clientes actualizados desde Supabase:', data.length);
-          onDataChange();
+        const now = Date.now();
+        if (now - lastSyncTime > SYNC_COOLDOWN) {
+          lastSyncTime = now;
+          const { data } = await supabase.from(TABLES.CLIENTES).select('*').order('compras', { ascending: false });
+          if (data) {
+            localStorage.setItem(STORAGE_KEYS.clientes, JSON.stringify(data));
+            onDataChange();
+          }
         }
       })
       .subscribe();
