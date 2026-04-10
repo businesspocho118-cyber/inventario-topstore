@@ -32,7 +32,7 @@ const estadoColors: Record<string, string> = {
 };
 
 export function Pedidos() {
-  const { getPedidos, getProductos, createPedido, updatePedido, updatePedidoEstado, deletePedido, isLoading } = useApi();
+  const { getPedidos, getProductos, createPedido, updatePedido, updatePedidoEstado, deletePedido, isLoading, checkConnection, loadFromSupabaseAndSave, isSupabaseConnected } = useApi();
   const { showToast } = useToast();
   
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
@@ -78,22 +78,38 @@ export function Pedidos() {
     loadData();
     
     // Recargar cuando la ventana recibe foco (cambió de pestaña y volvió)
-    const handleFocus = () => {
-      console.log('Ventana recibió foco - recargando pedidos...');
+    // IMPORTANTE:_forzar carga desde Supabase
+    const handleFocus = async () => {
+      console.log('Ventana recibió foco - recargando pedidos desde Supabase...');
+      // Forzar recarga desde Supabase
+      await checkConnection();
+      if (isSupabaseConnected()) {
+        await loadFromSupabaseAndSave();
+      }
       loadData();
     };
     
     // Recargar cuando la página se vuelve visible
-    const handleVisibilityChange = () => {
+    // IMPORTANTE: forzar carga desde Supabase
+    const handleVisibilityChange = async () => {
       if (!document.hidden) {
-        console.log('Página visible - recargando pedidos...');
+        console.log('Página visible - recargando pedidos desde Supabase...');
+        // Forzar recarga desde Supabase
+        await checkConnection();
+        if (isSupabaseConnected()) {
+          await loadFromSupabaseAndSave();
+        }
         loadData();
       }
     };
     
     // Recargar cada 30 segundos para mantener sincronizado entre dispositivos
-    const syncInterval = setInterval(() => {
+    const syncInterval = setInterval(async () => {
       console.log('[Auto-sync] Recargando pedidos cada 30 segundos...');
+      await checkConnection();
+      if (isSupabaseConnected()) {
+        await loadFromSupabaseAndSave();
+      }
       loadData();
     }, 30000);
     
