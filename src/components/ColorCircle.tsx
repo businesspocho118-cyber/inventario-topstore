@@ -97,15 +97,38 @@ const colorMap: Record<string, string> = {
 
 const getColorHex = (colorName: string, providedHex?: string): string => {
   if (providedHex) return providedHex;
-  // Si el color tiene formato "nombre#hex", extraer el hex
-  if (colorName.includes('#')) {
-    const hex = colorName.split('#')[1];
-    if (hex && hex.length === 6) return '#' + hex;
-  }
+  
+  // Si el color tiene formato "nombre HEX" (con espacio y SIN #), extraer el hex
+  // Ejemplo: "Azul #0000ff" -> extraer "0000ff"
+  const hexMatchSpace = colorName.match(/\s+(#[0-9a-fA-F]{6})$/);
+  if (hexMatchSpace) return hexMatchSpace[1];
+  
+  // Si el color tiene formato "nombre#hex" (con #), extraer el hex
+  const hexMatchHash = colorName.match(/#([0-9a-fA-F]{6})/);
+  if (hexMatchHash) return '#' + hexMatchHash[1];
+  
   // Si el color ya es un HEX (comienza con #), usarlo directamente
   if (colorName.startsWith('#')) return colorName;
+  
+  // Buscar en el mapa de colores por si tiene un nombre conocido
   const normalized = colorName.toLowerCase().trim();
   return colorMap[normalized] || '#6b7280'; // Default gray
+};
+
+// Obtener solo el nombre (antes del HEX) para mostrar
+const getDisplayName = (color: string): string => {
+  // Si tiene formato "nombre HEX" (con espacio), mostrar solo el nombre
+  const nameMatchSpace = color.match(/^(.+?)\s+#/);
+  if (nameMatchSpace) return nameMatchSpace[1].trim();
+  
+  // Si tiene formato "nombre#hex", mostrar solo el nombre
+  if (color.includes('#')) {
+    const parts = color.split('#');
+    return parts[0].trim();
+  }
+  
+  // Si es solo un nombre, devolverlo
+  return color;
 };
 
 export function ColorCircle({ 
@@ -117,9 +140,7 @@ export function ColorCircle({
   onClick 
 }: ColorCircleProps) {
   const colorHex = getColorHex(color, hex);
-  
-  // Obtener solo el nombre (antes del #) para mostrar
-  const displayName = color.includes('#') ? color.split('#')[0] : color;
+  const displayName = getDisplayName(color);
   
   return (
     <div 

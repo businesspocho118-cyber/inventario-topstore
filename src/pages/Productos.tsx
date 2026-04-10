@@ -8,6 +8,13 @@ import { ColorCircle } from '../components/ColorCircle';
 import type { Producto, CreateProductoRequest, UpdateProductoRequest } from '../types';
 import styles from './Productos.module.css';
 
+// Función auxiliar para obtener el nombre del color sin el HEX
+const getColorName = (color: string): string => {
+  if (color.includes(' #')) return color.split(' #')[0];
+  if (color.includes('#')) return color.split('#')[0];
+  return color;
+};
+
 interface FormData extends CreateProductoRequest {
   unidades: Record<string, number>;
 }
@@ -500,7 +507,7 @@ export function Productos() {
                 {(formData.colores || '').split(', ').filter((c: string) => c.trim()).map((color: string) => (
                   <span key={color} className={styles.colorTag}>
                     <ColorCircle color={color} size="sm" />
-                    {color}
+                    {getColorName(color)}
                     <button 
                       type="button" 
                       onClick={() => {
@@ -534,8 +541,8 @@ export function Productos() {
                       const picker = document.getElementById('colorPickerInput') as HTMLInputElement;
                       const colorName = nameInput?.value.trim();
                       const colorValue = picker?.value;
-                      // Guardar como "nombre#hex" para mostrar el nombre pero usar el HEX
-                      const colorKey = colorName ? `${colorName}#${colorValue}` : colorValue;
+                      // Guardar como "nombre HEX" (sin hashtag, con espacio)
+                      const colorKey = colorName ? `${colorName} ${colorValue}` : colorValue;
                       if (colorKey) {
                         const currentColors = (formData.colores || '').split(', ').filter((c: string) => c.trim());
                         if (!currentColors.includes(colorKey)) {
@@ -575,7 +582,7 @@ export function Productos() {
                       <div key={key} className={styles.unidadRow}>
                         <div className={styles.unidadColor}>
                           <ColorCircle color={color} size="sm" />
-                          <span>{color}</span>
+                          <span>{getColorName(color)}</span>
                         </div>
                         <span className={styles.unidadTalla}>{talla}</span>
                         <div className={styles.stockControls}>
@@ -673,7 +680,7 @@ export function Productos() {
                       <div key={key} className={styles.unidadRow}>
                         <div className={styles.unidadColor}>
                           <ColorCircle color={color} size="sm" />
-                          <span>{color}</span>
+                          <span>{getColorName(color)}</span>
                         </div>
                         <span className={styles.unidadTalla}>{talla}</span>
                         <div className={styles.stockControls}>
