@@ -349,7 +349,7 @@ export function useApi() {
     
     productosDb.push(nuevo);
     saveToLocal();
-    syncOneProductoToSupabase(nuevo);
+    await syncOneProductoToSupabase(nuevo);
     
     setIsLoading(false);
     return { success: true, data: nuevo };
@@ -367,7 +367,8 @@ export function useApi() {
     
     productosDb[idx] = { ...productosDb[idx], ...req, updated_at: new Date().toISOString() };
     saveToLocal();
-    syncOneProductoToSupabase(productosDb[idx]);
+    // Await para asegurar que termine antes de que el usuario cierre o recargue
+    await syncOneProductoToSupabase(productosDb[idx]);
     
     setIsLoading(false);
     return { success: true, data: productosDb[idx] };
@@ -386,7 +387,7 @@ export function useApi() {
     productosDb[idx].activo = false;
     productosDb[idx].updated_at = new Date().toISOString();
     saveToLocal();
-    syncOneProductoToSupabase(productosDb[idx]);
+    await syncOneProductoToSupabase(productosDb[idx]);
     
     setIsLoading(false);
     return { success: true };
@@ -485,7 +486,7 @@ export function useApi() {
     });
     
     saveToLocal();
-    syncOnePedidoToSupabase(nuevo);
+    await syncOnePedidoToSupabase(nuevo);
     
     setIsLoading(false);
     return { success: true, data: nuevo };
