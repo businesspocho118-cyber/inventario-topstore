@@ -597,19 +597,17 @@ export function useApi() {
           const validGender = gender === 'mujeres' ? 'mujeres' : 'hombres';
           const imagePaths = gallery.map((img: any) => img.src?.startsWith('http') ? img.src : `${CATALOG_URL}/${img.src}`);
           
-          // No importar stock del catálogo - ahora se gestiona manualmente
+          // Solo agregar productos nuevos - NO sobrescribir los existentes
           const existIdx = productosDb.findIndex(p => p.product_id === productId);
           
-          if (existIdx !== -1) {
-            productosDb[existIdx] = { ...productosDb[existIdx], nombre: name, precio: price, colores: colors, genero: validGender, image_paths: imagePaths, activo: true, updated_at: new Date().toISOString() };
-          } else {
+          if (existIdx === -1) {
+            // Producto nuevo - agregarlo
             productosDb.push({ id: nextProductoId++, product_id: productId, nombre: name, descripcion: '', precio: price, colores: colors, tallas: '', unidades: {}, genero: validGender, categoria: '', image_paths: imagePaths, stock: 0, activo: true, created_at: new Date().toISOString(), updated_at: new Date().toISOString() });
+            success++;
           }
-          success++;
+          // Si ya existe, NO hacer nada - mantener datos locales intactos
         } catch (e) { errors.push(`Error: ${e}`); }
       });
-      
-      productosDb.forEach(p => { if (!catalogIds.includes(p.product_id) && p.activo) { p.activo = false; p.updated_at = new Date().toISOString(); } });
       
       // IMPORTANTE: Guardar en localStorage después de sincronizar
       saveToLocal();
