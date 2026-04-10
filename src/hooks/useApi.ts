@@ -42,12 +42,9 @@ const loadFromLocal = () => {
 // Cargar desde Supabase cuando no hay localStorage
 const loadFromSupabaseAndSave = async () => {
   try {
-    console.log('Cargando datos desde Supabase...');
     const { data: productosData } = await supabase.from(TABLES.PRODUCTOS).select('*').eq('activo', true).order('id');
     const { data: pedidosData } = await supabase.from(TABLES.PEDIDOS).select('*').order('id');
     const { data: clientesData } = await supabase.from(TABLES.CLIENTES).select('*').order('compras', { ascending: false });
-    
-    console.log('Desde Supabase:', productosData?.length || 0, 'productos,', pedidosData?.length || 0, 'pedidos,', clientesData?.length || 0, 'clientes');
     
     if (productosData && productosData.length > 0) {
       productosDb = productosData;
@@ -66,10 +63,8 @@ const loadFromSupabaseAndSave = async () => {
     
     // GUARDAR en localStorage después de cargar de Supabase
     saveToLocal();
-    console.log('Datos cargados desde Supabase y guardados en localStorage');
     return true;
   } catch (e) {
-    console.error('Error loading from Supabase:', e);
     return false;
   }
 };
@@ -79,7 +74,7 @@ const syncOneProductoToSupabase = async (producto: Producto) => {
   if (!supabaseConnected) return;
   try {
     // Sync todos los campos incluyendo tallas y unidades
-    const productoToSync = { 
+    const productoToSync = {
       id: producto.id,
       product_id: producto.product_id,
       nombre: producto.nombre,
@@ -98,8 +93,6 @@ const syncOneProductoToSupabase = async (producto: Producto) => {
     const { error } = await supabase.from(TABLES.PRODUCTOS).upsert(productoToSync, { onConflict: 'id' });
     if (error) {
       console.error('Error sync producto:', error.message, error.details);
-    } else {
-      console.log('Producto sincronizado:', producto.id, producto.nombre);
     }
   } catch (e) { 
     console.error('Exception sync producto:', e);
@@ -109,11 +102,9 @@ const syncOneProductoToSupabase = async (producto: Producto) => {
 // Sync a Supabase - solo el pedido específico
 const syncOnePedidoToSupabase = async (pedido: Pedido) => {
   if (!supabaseConnected) {
-    console.log('No hay conexión a Supabase para sync pedido');
     return;
   }
   try {
-    console.log('Sincronizando pedido a Supabase:', pedido.id, pedido.cliente_nombre);
     const pedidoToSync = {
       id: pedido.id,
       fecha: pedido.fecha,
@@ -131,8 +122,6 @@ const syncOnePedidoToSupabase = async (pedido: Pedido) => {
     const { error } = await supabase.from(TABLES.PEDIDOS).upsert(pedidoToSync, { onConflict: 'id' });
     if (error) {
       console.error('Error sync pedido:', error.message, error.details);
-    } else {
-      console.log('Pedido sync OK:', pedido.id);
     }
   } catch (e) {
     console.error('Exception sync pedido:', e);
@@ -149,37 +138,53 @@ const syncOneClienteToSupabase = async (cliente: any) => {
 
 // Suscripciones para sync en tiempo real entre dispositivos
 let subscriptionsSetup = false;
+let lastSyncTime = 0;
+const SYNC_COOLDOWN = 3000; // 3 segundos entre sincronizaciones para evitar loops
 
 const setupRealtimeSubscriptions = (onDataChange: () => void) => {
+  // Deshabilitado: las suscripciones en tiempo real causaban loops de sincronización
+  // El sync ahora es manual desde Configuración
+  return;
+  
   if (subscriptionsSetup || !supabaseConnected) return;
   
   try {
     // Suscribirse a cambios en productos
     supabase.channel('productos-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: TABLES.PRODUCTOS }, async () => {
-        // Cuando hay cambio en Supabase, recargar datos
-        await loadFromSupabaseAndSave();
-        onDataChange();
+        // Solo recargar si pasaron más de 3 segundos desde el último sync (evitar loops)
+        const now = Date.now();
+        if (now - lastSyncTime > SYNC_COOLDOWN) {
+          lastSyncTime = now;
+          await loadFromSupabaseAndSave();
+          onDataChange();
+        }
       })
       .subscribe();
 
     // Suscribirse a cambios en pedidos
     supabase.channel('pedidos-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: TABLES.PEDIDOS }, async (payload) => {
-        console.log('Cambio en pedidos detectado:', payload.eventType);
-        await loadFromSupabaseAndSave();
-        onDataChange();
+        const now = Date.now();
+        if (now - lastSyncTime > SYNC_COOLDOWN) {
+          lastSyncTime = now;
+          await loadFromSupabaseAndSave();
+          onDataChange();
+        }
       })
       .subscribe();
 
     // Suscribirse a cambios en clientes
     supabase.channel('clientes-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: TABLES.CLIENTES }, async () => {
-        const { data } = await supabase.from(TABLES.CLIENTES).select('*').order('compras', { ascending: false });
-        if (data) {
-          localStorage.setItem(STORAGE_KEYS.clientes, JSON.stringify(data));
-          console.log('Clientes actualizados desde Supabase:', data.length);
-          onDataChange();
+        const now = Date.now();
+        if (now - lastSyncTime > SYNC_COOLDOWN) {
+          lastSyncTime = now;
+          const { data } = await supabase.from(TABLES.CLIENTES).select('*').order('compras', { ascending: false });
+          if (data) {
+            localStorage.setItem(STORAGE_KEYS.clientes, JSON.stringify(data));
+            onDataChange();
+          }
         }
       })
       .subscribe();
@@ -201,13 +206,7 @@ const checkConnection = async () => {
 const loadInitialData = async () => {
   // 1. Primero intentar localStorage (más rápido)
   if (loadFromLocal()) {
-    // Una vez cargado, intentar actualizar desde Supabase en background
-    checkConnection().then(async () => {
-      if (supabaseConnected) {
-        await loadFromSupabaseAndSave();
-        console.log('Datos actualizados desde Supabase en background');
-      }
-    });
+    // NO hacer sync automático en background - el usuario sync manualmente desde Configuración
     return;
   }
   
@@ -241,16 +240,7 @@ export function useApi() {
 
   // Efecto para configurar suscripciones en tiempo real (solo una vez)
   useEffect(() => {
-    const setupSubscriptions = async () => {
-      await checkConnection();
-      if (supabaseConnected) {
-        setupRealtimeSubscriptions(() => {
-          // Cuando hay cambio en Supabase, actualizar el estado para re-render
-          setRefreshTrigger(t => t + 1);
-        });
-      }
-    };
-    setupSubscriptions();
+    // Suscripciones deshabilitadas - sync manual desde Configuración
   }, []);
 
   // Cuando refreshTrigger cambia, recargar datos
@@ -504,14 +494,9 @@ export function useApi() {
       return { success: false, error: 'Pedido no encontrado' };
     }
     
-    console.log('Eliminando pedido con ID:', id);
-    
     // Primero eliminar de Supabase
     if (supabaseConnected) {
-      const { error } = await supabase.from(TABLES.PEDIDOS).delete().eq('id', id);
-      console.log('Resultado eliminación Supabase:', error ? 'Error: ' + error.message : 'OK');
-    } else {
-      console.log('No hay conexión a Supabase para eliminar');
+      await supabase.from(TABLES.PEDIDOS).delete().eq('id', id);
     }
     
     // Luego eliminar localmente
@@ -575,13 +560,21 @@ export function useApi() {
     const errors: string[] = [];
     let success = 0;
     let removed = 0;
+    let catalogoProcesado = false;
     
     try {
       const response = await fetch(CATALOG_URL);
+      if (!response.ok) {
+        errors.push(`Conexión: HTTP ${response.status}`);
+        throw new Error(`HTTP ${response.status}`);
+      }
       const html = await response.text();
       const parser = new DOMParser();
       const doc = parser.parseFromString(html, 'text/html');
-      const cards = doc.querySelectorAll('.product-card');
+      // El catálogo usa .preview-card que también tiene la clase .product-card
+      const cards = doc.querySelectorAll('.preview-card.product-card');
+      console.log('[Sync] Productos encontrados en catálogo:', cards.length);
+      catalogoProcesado = true;
       const catalogIds: string[] = [];
       
       cards.forEach(card => {
@@ -597,30 +590,39 @@ export function useApi() {
           const validGender = gender === 'mujeres' ? 'mujeres' : 'hombres';
           const imagePaths = gallery.map((img: any) => img.src?.startsWith('http') ? img.src : `${CATALOG_URL}/${img.src}`);
           
-          // No importar stock del catálogo - ahora se gestiona manualmente
+          // Solo agregar productos nuevos - NO sobrescribir los existentes
           const existIdx = productosDb.findIndex(p => p.product_id === productId);
           
-          if (existIdx !== -1) {
-            productosDb[existIdx] = { ...productosDb[existIdx], nombre: name, precio: price, colores: colors, genero: validGender, image_paths: imagePaths, activo: true, updated_at: new Date().toISOString() };
-          } else {
+          if (existIdx === -1) {
+            // Producto nuevo - agregarlo
             productosDb.push({ id: nextProductoId++, product_id: productId, nombre: name, descripcion: '', precio: price, colores: colors, tallas: '', unidades: {}, genero: validGender, categoria: '', image_paths: imagePaths, stock: 0, activo: true, created_at: new Date().toISOString(), updated_at: new Date().toISOString() });
+            success++;
           }
-          success++;
+          // Si ya existe, NO hacer nada - mantener datos locales intactos
         } catch (e) { errors.push(`Error: ${e}`); }
       });
       
-      productosDb.forEach(p => { if (!catalogIds.includes(p.product_id) && p.activo) { p.activo = false; p.updated_at = new Date().toISOString(); } });
+      console.log('[Sync] Productos nuevos agregados:', success);
       
-      // IMPORTANTE: Guardar en localStorage después de sincronizar
+      // Guardar en localStorage los productos nuevos agregados
       saveToLocal();
-      // Sync todos los productos a Supabase
-      for (const p of productosDb) {
+      
+      // Sync todos los productos a Supabase (solo los nuevos productos para no sobrescribir)
+      // Pero primero esperar a que las suscripciones detecten el cambio
+      for (const p of productosDb.filter(p => {
+        // Solo sync productos que fueron creados en este sync
+        if (!p.created_at) return false;
+        const syncTime = new Date(p.created_at).getTime();
+        return Date.now() - syncTime < 60000; // productos creados en el último minuto
+      })) {
         await syncOneProductoToSupabase(p);
       }
     } catch (e) { errors.push(`Conexión: ${e}`); }
     
     setIsLoading(false);
-    return { success, removed, errors };
+    // Retornar success > 0 para indicar que el catálogo se procesó correctamente
+    // aunque no haya productos nuevos (porque ya existían todos)
+    return { success, removed, errors, catalogoOk: success > 0 || catalogoProcesado };
   }, []);
 
   // Exportar datos a CSV
