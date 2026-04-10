@@ -97,6 +97,11 @@ const colorMap: Record<string, string> = {
 
 const getColorHex = (colorName: string, providedHex?: string): string => {
   if (providedHex) return providedHex;
+  // Si el color tiene formato "nombre#hex", extraer el hex
+  if (colorName.includes('#')) {
+    const hex = colorName.split('#')[1];
+    if (hex && hex.length === 6) return '#' + hex;
+  }
   // Si el color ya es un HEX (comienza con #), usarlo directamente
   if (colorName.startsWith('#')) return colorName;
   const normalized = colorName.toLowerCase().trim();
@@ -113,6 +118,9 @@ export function ColorCircle({
 }: ColorCircleProps) {
   const colorHex = getColorHex(color, hex);
   
+  // Obtener solo el nombre (antes del #) para mostrar
+  const displayName = color.includes('#') ? color.split('#')[0] : color;
+  
   return (
     <div 
       className={`${styles.container} ${styles[size]} ${selected ? styles.selected : ''} ${onClick ? styles.clickable : ''}`}
@@ -127,7 +135,7 @@ export function ColorCircle({
           <div className={styles.checkmark}>✓</div>
         )}
       </div>
-      {showName && <span className={styles.name}>{color}</span>}
+      {showName && <span className={styles.name}>{displayName}</span>}
     </div>
   );
 }

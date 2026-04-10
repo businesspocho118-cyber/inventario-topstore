@@ -511,8 +511,14 @@ export function Productos() {
                     >×</button>
                   </span>
                 ))}
-                {/* Solo color picker - el color es el HEX del picker, no el nombre */}
+                {/* Color picker + nombre personalizado */}
                 <div className={styles.colorPickerContainer}>
+                  <input
+                    type="text"
+                    placeholder="Nombre (ej: Azul)"
+                    className={styles.colorNameInput}
+                    id="colorNameInput"
+                  />
                   <input
                     type="color"
                     id="colorPickerInput"
@@ -524,15 +530,20 @@ export function Productos() {
                     type="button"
                     className={styles.addColorBtn}
                     onClick={() => {
+                      const nameInput = document.getElementById('colorNameInput') as HTMLInputElement;
                       const picker = document.getElementById('colorPickerInput') as HTMLInputElement;
+                      const colorName = nameInput?.value.trim();
                       const colorValue = picker?.value;
-                      if (colorValue) {
+                      // Guardar como "nombre#hex" para mostrar el nombre pero usar el HEX
+                      const colorKey = colorName ? `${colorName}#${colorValue}` : colorValue;
+                      if (colorKey) {
                         const currentColors = (formData.colores || '').split(', ').filter((c: string) => c.trim());
-                        if (!currentColors.includes(colorValue)) {
+                        if (!currentColors.includes(colorKey)) {
                           setFormData({
                             ...formData,
-                            colores: [...currentColors, colorValue].join(', ')
+                            colores: [...currentColors, colorKey].join(', ')
                           });
+                          nameInput.value = '';
                         }
                       }
                     }}
