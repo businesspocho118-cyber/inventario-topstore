@@ -511,57 +511,44 @@ export function Productos() {
                     >×</button>
                   </span>
                 ))}
-                {/* Solo input de texto - sin color picker automático */}
-                <input
-                  type="text"
-                  list="coloresPredefinidos"
-                  placeholder="+ Color"
-                  className={styles.colorInput}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && e.currentTarget.value.trim()) {
-                      const newColor = e.currentTarget.value.trim();
-                      const currentColors = (formData.colores || '').split(', ').filter((c: string) => c.trim());
-                      if (!currentColors.includes(newColor)) {
-                        setFormData({
-                          ...formData,
-                          colores: [...currentColors, newColor].join(', ')
-                        });
+                {/* Solo color picker - confirmar manualmente */}
+                <div className={styles.colorPickerContainer}>
+                  <input
+                    type="text"
+                    placeholder="Nombre color"
+                    className={styles.colorNameInput}
+                    id="colorNameInput"
+                  />
+                  <button 
+                    type="button"
+                    className={styles.addColorBtn}
+                    onClick={() => {
+                      const nameInput = document.getElementById('colorNameInput') as HTMLInputElement;
+                      const picker = document.getElementById('colorPickerInput') as HTMLInputElement;
+                      const colorName = nameInput?.value.trim();
+                      const colorValue = picker?.value;
+                      if (colorName && colorValue) {
+                        const currentColors = (formData.colores || '').split(', ').filter((c: string) => c.trim());
+                        if (!currentColors.includes(colorName)) {
+                          setFormData({
+                            ...formData,
+                            colores: [...currentColors, colorName].join(', ')
+                          });
+                          nameInput.value = '';
+                        }
                       }
-                      e.currentTarget.value = '';
-                    }
-                  }}
-                />
-                <datalist id="coloresPredefinidos">
-                  <option value="Negro" />
-                  <option value="Blanco" />
-                  <option value="Gris" />
-                  <option value="Azul" />
-                  <option value="Rojo" />
-                  <option value="Verde" />
-                  <option value="Rosa" />
-                  <option value="Morado" />
-                  <option value="Café" />
-                  <option value="Vino Tinto" />
-                  <option value="Azul Oscuro" />
-                  <option value="Azul Claro" />
-                  <option value="Naranja" />
-                  <option value="Amarillo" />
-                  <option value="Beige" />
-                  <option value="Dorado" />
-                  <option value="Plata" />
-                  <option value="Lila" />
-                  <option value="Turquesa" />
-                  <option value="Azul Marino" />
-                  <option value="Verde Oscuro" />
-                  <option value="Verde Claro" />
-                  <option value="Coral" />
-                  <option value="Salmon" />
-                  <option value="Crema" />
-                  <option value="Mostaza" />
-                  <option value="Borgoña" />
-                  <option value="Mint" />
-                  <option value="Lavanda" />
-                </datalist>
+                    }}
+                  >
+                    + Añadir
+                  </button>
+                  <input
+                    type="color"
+                    id="colorPickerInput"
+                    className={styles.colorPicker}
+                    title="Seleccionar color"
+                    defaultValue="#000000"
+                  />
+                </div>
               </div>
             </div>
           </div>

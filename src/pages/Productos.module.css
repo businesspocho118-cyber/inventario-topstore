@@ -559,6 +559,42 @@
 }
 
 /* Color picker */
+.colorPickerContainer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.colorNameInput {
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--color-text-primary);
+  width: 100px;
+}
+
+.colorNameInput:focus {
+  outline: none;
+  border-color: var(--color-accent-primary);
+}
+
+.addColorBtn {
+  background: var(--color-accent-primary);
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.addColorBtn:hover {
+  opacity: 0.9;
+}
+
 .colorPicker {
   width: 36px;
   height: 36px;
