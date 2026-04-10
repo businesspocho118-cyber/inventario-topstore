@@ -630,7 +630,7 @@ export function useApi() {
           const validGender = gender === 'mujeres' ? 'mujeres' : 'hombres';
           const imagePaths = gallery.map((img: any) => img.src?.startsWith('http') ? img.src : `${CATALOG_URL}/${img.src}`);
           
-          // Solo agregar productos nuevos - NO sobrescribir los existentes
+          // Buscar si ya existe el producto
           const existIdx = productosDb.findIndex(p => p.product_id === productId);
           
           if (existIdx === -1) {
@@ -638,8 +638,11 @@ export function useApi() {
             console.log('[Sync] 🆕 AGREGANDO:', productId, '-', name);
             productosDb.push({ id: nextProductoId++, product_id: productId, nombre: name, descripcion: '', precio: price, colores: colors, tallas: '', unidades: {}, genero: validGender, categoria: '', image_paths: imagePaths, stock: 0, activo: true, created_at: new Date().toISOString(), updated_at: new Date().toISOString() });
             success++;
+          } else {
+            // Producto ya existe - asegurarnos que esté activo
+            console.log('[Sync] ✅ Ya existe, activando:', productId);
+            productosDb[existIdx].activo = true;
           }
-          // Si ya existe, NO hacer nada - mantener datos locales intactos
         } catch (e) { errors.push(`Error: ${e}`); }
       });
       
