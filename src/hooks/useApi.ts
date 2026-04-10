@@ -29,12 +29,23 @@ const loadFromLocal = () => {
   const storedP = localStorage.getItem(STORAGE_KEYS.productos);
   const storedO = localStorage.getItem(STORAGE_KEYS.pedidos);
   
+  // Verificar que los datos no estén vacíos o sean válidos
   if (storedP && storedO) {
-    productosDb = JSON.parse(storedP);
-    pedidosDb = JSON.parse(storedO);
-    nextProductoId = (productosDb.length ? Math.max(...productosDb.map(p => p.id)) : 0) + 1;
-    nextPedidoId = (pedidosDb.length ? Math.max(...pedidosDb.map(p => p.id)) : 0) + 1;
-    return true;
+    try {
+      const productos = JSON.parse(storedP);
+      const pedidos = JSON.parse(storedO);
+      
+      // Solo retornar true si hay productos reales
+      if (productos && Array.isArray(productos) && productos.length > 0) {
+        productosDb = productos;
+        pedidosDb = pedidos;
+        nextProductoId = (productosDb.length ? Math.max(...productosDb.map(p => p.id)) : 0) + 1;
+        nextPedidoId = (pedidosDb.length ? Math.max(...pedidosDb.map(p => p.id)) : 0) + 1;
+        return true;
+      }
+    } catch (e) {
+      // Si hay error de parsing, considerar como vacío
+    }
   }
   return false;
 };
@@ -42,9 +53,28 @@ const loadFromLocal = () => {
 // Cargar desde Supabase cuando no hay localStorage
 const loadFromSupabaseAndSave = async () => {
   try {
-    const { data: productosData } = await supabase.from(TABLES.PRODUCTOS).select('*').eq('activo', true).order('id');
-    const { data: pedidosData } = await supabase.from(TABLES.PEDIDOS).select('*').order('id');
-    const { data: clientesData } = await supabase.from(TABLES.CLIENTES).select('*').order('compras', { ascending: false });
+    console.log('[Load] Cargando desde Supabase...');
+    const { data: productosData, error: productosError } = await supabase.from(TABLES.PRODUCTOS).select('*').order('id');
+    
+    if (productosError) {
+      console.error('[Load] Error cargando productos:', productosError);
+    }
+    
+    const { data: pedidosData, error: pedidosError } = await supabase.from(TABLES.PEDIDOS).select('*').order('id');
+    
+    if (pedidosError) {
+      console.error('[Load] Error cargando pedidos:', pedidosError);
+    }
+    
+    const { data: clientesData, error: clientesError } = await supabase.from(TABLES.CLIENTES).select('*').order('compras', { ascending: false });
+    
+    if (clientesError) {
+      console.error('[Load] Error cargando clientes:', clientesError);
+    }
+    
+    console.log('[Load] Productos desde Supabase:', productosData?.length || 0);
+    console.log('[Load] Pedidos desde Supabase:', pedidosData?.length || 0);
+    console.log('[Load] Clientes desde Supabase:', clientesData?.length || 0);
     
     if (productosData && productosData.length > 0) {
       productosDb = productosData;
@@ -63,8 +93,10 @@ const loadFromSupabaseAndSave = async () => {
     
     // GUARDAR en localStorage después de cargar de Supabase
     saveToLocal();
+    console.log('[Load] Datos guardados en localStorage');
     return true;
   } catch (e) {
+    console.error('[Load] Error general:', e);
     return false;
   }
 };
@@ -204,19 +236,27 @@ const checkConnection = async () => {
 
 // Cargar datos iniciales - PRIORIDAD: localStorage > Supabase > JSON (como estaba antes)
 const loadInitialData = async () => {
+  console.log('[Init] Iniciando carga de datos...');
+  
   // 1. Primero intentar localStorage (más rápido)
-  if (loadFromLocal()) {
+  const localLoaded = loadFromLocal();
+  if (localLoaded) {
+    console.log('[Init] Datos cargados desde localStorage:', productosDb.length, 'productos');
     // NO hacer sync automático en background - el usuario sync manualmente desde Configuración
     return;
   }
+  console.log('[Init] localStorage vacío o inválido');
   
   // 2. Si no hay localStorage, intentar Supabase
   await checkConnection();
   if (supabaseConnected) {
+    console.log('[Init] Supabase conectado, intentando cargar...');
     if (await loadFromSupabaseAndSave()) {
+      console.log('[Init] Datos cargados desde Supabase y guardados en localStorage');
       return;
     }
   }
+  console.log('[Init] No se pudo cargar desde Supabase, intentando JSON...');
   
   // 3. Si nada funciona, cargar desde JSON
   try {
