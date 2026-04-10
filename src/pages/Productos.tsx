@@ -511,36 +511,8 @@ export function Productos() {
                     >×</button>
                   </span>
                 ))}
-                {/* Solo color picker - confirmar manualmente */}
+                {/* Solo color picker - el color es el HEX del picker, no el nombre */}
                 <div className={styles.colorPickerContainer}>
-                  <input
-                    type="text"
-                    placeholder="Nombre color"
-                    className={styles.colorNameInput}
-                    id="colorNameInput"
-                  />
-                  <button 
-                    type="button"
-                    className={styles.addColorBtn}
-                    onClick={() => {
-                      const nameInput = document.getElementById('colorNameInput') as HTMLInputElement;
-                      const picker = document.getElementById('colorPickerInput') as HTMLInputElement;
-                      const colorName = nameInput?.value.trim();
-                      const colorValue = picker?.value;
-                      if (colorName && colorValue) {
-                        const currentColors = (formData.colores || '').split(', ').filter((c: string) => c.trim());
-                        if (!currentColors.includes(colorName)) {
-                          setFormData({
-                            ...formData,
-                            colores: [...currentColors, colorName].join(', ')
-                          });
-                          nameInput.value = '';
-                        }
-                      }
-                    }}
-                  >
-                    + Añadir
-                  </button>
                   <input
                     type="color"
                     id="colorPickerInput"
@@ -548,6 +520,25 @@ export function Productos() {
                     title="Seleccionar color"
                     defaultValue="#000000"
                   />
+                  <button 
+                    type="button"
+                    className={styles.addColorBtn}
+                    onClick={() => {
+                      const picker = document.getElementById('colorPickerInput') as HTMLInputElement;
+                      const colorValue = picker?.value;
+                      if (colorValue) {
+                        const currentColors = (formData.colores || '').split(', ').filter((c: string) => c.trim());
+                        if (!currentColors.includes(colorValue)) {
+                          setFormData({
+                            ...formData,
+                            colores: [...currentColors, colorValue].join(', ')
+                          });
+                        }
+                      }
+                    }}
+                  >
+                    + Añadir
+                  </button>
                 </div>
               </div>
             </div>

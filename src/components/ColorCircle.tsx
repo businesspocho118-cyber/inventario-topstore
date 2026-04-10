@@ -97,6 +97,8 @@ const colorMap: Record<string, string> = {
 
 const getColorHex = (colorName: string, providedHex?: string): string => {
   if (providedHex) return providedHex;
+  // Si el color ya es un HEX (comienza con #), usarlo directamente
+  if (colorName.startsWith('#')) return colorName;
   const normalized = colorName.toLowerCase().trim();
   return colorMap[normalized] || '#6b7280'; // Default gray
 };
