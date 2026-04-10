@@ -558,6 +558,26 @@
   color: var(--color-text-secondary);
 }
 
+/* Color picker */
+.colorPicker {
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  padding: 0;
+  background: transparent;
+}
+
+.colorPicker::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.colorPicker::-webkit-color-swatch {
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-full);
+}
+
 /* Unidades Editor (Color+Talla together) */
 .unidadesEditor {
   display: flex;

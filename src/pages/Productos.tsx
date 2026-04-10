@@ -511,10 +511,26 @@ export function Productos() {
                     >×</button>
                   </span>
                 ))}
+                {/* Color picker para agregar colores fácilmente */}
+                <input
+                  type="color"
+                  className={styles.colorPicker}
+                  title="Seleccionar color"
+                  onChange={(e) => {
+                    const newColor = e.target.value;
+                    const currentColors = (formData.colores || '').split(', ').filter((c: string) => c.trim());
+                    if (!currentColors.includes(newColor)) {
+                      setFormData({
+                        ...formData,
+                        colores: [...currentColors, newColor].join(', ')
+                      });
+                    }
+                  }}
+                />
                 <input
                   type="text"
                   list="coloresPredefinidos"
-                  placeholder="+ Añadir color"
+                  placeholder="+ Color"
                   className={styles.colorInput}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && e.currentTarget.value.trim()) {
@@ -543,6 +559,23 @@ export function Productos() {
                   <option value="Vino Tinto" />
                   <option value="Azul Oscuro" />
                   <option value="Azul Claro" />
+                  <option value="Naranja" />
+                  <option value="Amarillo" />
+                  <option value="Beige" />
+                  <option value="Dorado" />
+                  <option value="Plata" />
+                  <option value="Lila" />
+                  <option value="Turquesa" />
+                  <option value="Azul Marino" />
+                  <option value="Verde Oscuro" />
+                  <option value="Verde Claro" />
+                  <option value="Coral" />
+                  <option value="Salmon" />
+                  <option value="Crema" />
+                  <option value="Mostaza" />
+                  <option value="Borgoña" />
+                  <option value="Mint" />
+                  <option value="Lavanda" />
                 </datalist>
               </div>
             </div>
@@ -600,15 +633,51 @@ export function Productos() {
           )}
 
           <div className={styles.formGroup}>
-            <label>Tallas</label>
-            <input
-              type="text"
-              value={formData.tallas}
-              onChange={(e) => handleTallasChange(e.target.value)}
-              className="input"
-              placeholder="S, M, L, XL"
-            />
-          </div>
+              <label>Tallas</label>
+              <div className={styles.coloresTags}>
+                {(formData.tallas || '').split(', ').filter((t: string) => t.trim()).map((talla: string) => (
+                  <span key={talla} className={styles.colorTag}>
+                    {talla}
+                    <button 
+                      type="button" 
+                      onClick={() => {
+                        const newTallas = (formData.tallas || '').split(', ').filter((t: string) => t.trim()).filter(t => t !== talla);
+                        setFormData({...formData, tallas: newTallas.join(', ')});
+                      }}
+                      className={styles.removeColor}
+                    >×</button>
+                  </span>
+                ))}
+                <input
+                  type="text"
+                  list="tallasPredefinidas"
+                  placeholder="+ Talla"
+                  className={styles.colorInput}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && e.currentTarget.value.trim()) {
+                      const newTalla = e.currentTarget.value.trim().toUpperCase();
+                      const currentTallas = (formData.tallas || '').split(', ').filter((t: string) => t.trim());
+                      if (!currentTallas.includes(newTalla)) {
+                        setFormData({
+                          ...formData,
+                          tallas: [...currentTallas, newTalla].join(', ')
+                        });
+                      }
+                      e.currentTarget.value = '';
+                    }
+                  }}
+                />
+                <datalist id="tallasPredefinidas">
+                  <option value="XS" />
+                  <option value="S" />
+                  <option value="M" />
+                  <option value="L" />
+                  <option value="XL" />
+                  <option value="XXL" />
+                  <option value="UNICA" />
+                </datalist>
+              </div>
+            </div>
 
           {/* Editor de unidades por COLOR+TALLA */}
           {formData.colores && formData.tallas && (
