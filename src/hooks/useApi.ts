@@ -79,11 +79,15 @@ const loadFromSupabaseAndSave = async () => {
     if (productosData && productosData.length > 0) {
       productosDb = productosData;
       nextProductoId = (productosDb.length ? Math.max(...productosDb.map(p => p.id)) : 0) + 1;
+      // IMPORTANTE: Guardar en localStorage
+      localStorage.setItem(STORAGE_KEYS.productos, JSON.stringify(productosDb));
     }
     
     if (pedidosData && pedidosData.length > 0) {
       pedidosDb = pedidosData;
       nextPedidoId = (pedidosDb.length ? Math.max(...pedidosDb.map(p => p.id)) : 0) + 1;
+      // IMPORTANTE: Guardar en localStorage
+      localStorage.setItem(STORAGE_KEYS.pedidos, JSON.stringify(pedidosDb));
     }
     
     // Guardar clientes en localStorage
