@@ -563,11 +563,16 @@ export function useApi() {
     
     try {
       const response = await fetch(CATALOG_URL);
+      if (!response.ok) {
+        errors.push(`Conexión: HTTP ${response.status}`);
+        throw new Error(`HTTP ${response.status}`);
+      }
       const html = await response.text();
       const parser = new DOMParser();
       const doc = parser.parseFromString(html, 'text/html');
       // El catálogo usa .preview-card que también tiene la clase .product-card
       const cards = doc.querySelectorAll('.preview-card.product-card');
+      console.log('[Sync] Productos encontrados en catálogo:', cards.length);
       const catalogIds: string[] = [];
       
       cards.forEach(card => {
