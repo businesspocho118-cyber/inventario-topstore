@@ -8,6 +8,13 @@ import { ColorCircle } from '../components/ColorCircle';
 import type { Producto, CreateProductoRequest, UpdateProductoRequest } from '../types';
 import styles from './Productos.module.css';
 
+// Función auxiliar para obtener el nombre del color sin el HEX
+const getColorName = (color: string): string => {
+  if (color.includes(' #')) return color.split(' #')[0];
+  if (color.includes('#')) return color.split('#')[0];
+  return color;
+};
+
 interface FormData extends CreateProductoRequest {
   unidades: Record<string, number>;
 }
@@ -262,13 +269,13 @@ export function Productos() {
   // Cuando cambian las tallas, limpiar unidades que ya no existen
   const handleTallasChange = (newTallas: string) => {
     setFormData(prev => {
-      const colorList = (prev.colores || '').split(', ').filter(c => c.trim());
-      const tallaList = newTallas.split(', ').filter(t => t.trim());
+      const colorList = (prev.colores || '').split(', ').filter((c: string) => c.trim());
+      const tallaList = newTallas.split(', ').filter((t: string) => t.trim());
       const newUnidades: Record<string, number> = {};
       
       // Mantener solo las combinaciones que siguen siendo válidas
-      colorList.forEach(color => {
-        tallaList.forEach(talla => {
+      colorList.forEach((color: string) => {
+        tallaList.forEach((talla: string) => {
           const key = `${color}-${talla}`;
           if (prev.unidades && prev.unidades[key] !== undefined) {
             newUnidades[key] = prev.unidades[key];
@@ -496,13 +503,62 @@ export function Productos() {
 
             <div className={styles.formGroup}>
               <label>Colores</label>
-              <input
-                type="text"
-                value={formData.colores}
-                onChange={(e) => handleColorsChange(e.target.value)}
-                className="input"
-                placeholder="Negro, Blanco, Gris"
-              />
+              <div className={styles.coloresTags}>
+                {(formData.colores || '').split(', ').filter((c: string) => c.trim()).map((color: string) => (
+                  <span key={color} className={styles.colorTag}>
+                    <ColorCircle color={color} size="sm" />
+                    {getColorName(color)}
+                    <button 
+                      type="button" 
+                      onClick={() => {
+                        const newColors = (formData.colores || '').split(', ').filter((c: string) => c.trim()).filter(c => c !== color);
+                        setFormData({...formData, colores: newColors.join(', ')});
+                      }}
+                      className={styles.removeColor}
+                    >×</button>
+                  </span>
+                ))}
+                {/* Color picker + nombre personalizado */}
+                <div className={styles.colorPickerContainer}>
+                  <input
+                    type="text"
+                    placeholder="Nombre (ej: Azul)"
+                    className={styles.colorNameInput}
+                    id="colorNameInput"
+                  />
+                  <input
+                    type="color"
+                    id="colorPickerInput"
+                    className={styles.colorPicker}
+                    title="Seleccionar color"
+                    defaultValue="#000000"
+                  />
+                  <button 
+                    type="button"
+                    className={styles.addColorBtn}
+                    onClick={() => {
+                      const nameInput = document.getElementById('colorNameInput') as HTMLInputElement;
+                      const picker = document.getElementById('colorPickerInput') as HTMLInputElement;
+                      const colorName = nameInput?.value.trim();
+                      const colorValue = picker?.value;
+                      // Guardar como "nombre HEX" (sin hashtag, con espacio)
+                      const colorKey = colorName ? `${colorName} ${colorValue}` : colorValue;
+                      if (colorKey) {
+                        const currentColors = (formData.colores || '').split(', ').filter((c: string) => c.trim());
+                        if (!currentColors.includes(colorKey)) {
+                          setFormData({
+                            ...formData,
+                            colores: [...currentColors, colorKey].join(', ')
+                          });
+                          nameInput.value = '';
+                        }
+                      }
+                    }}
+                  >
+                    + Añadir
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -526,7 +582,7 @@ export function Productos() {
                       <div key={key} className={styles.unidadRow}>
                         <div className={styles.unidadColor}>
                           <ColorCircle color={color} size="sm" />
-                          <span>{color}</span>
+                          <span>{getColorName(color)}</span>
                         </div>
                         <span className={styles.unidadTalla}>{talla}</span>
                         <div className={styles.stockControls}>
@@ -558,15 +614,51 @@ export function Productos() {
           )}
 
           <div className={styles.formGroup}>
-            <label>Tallas</label>
-            <input
-              type="text"
-              value={formData.tallas}
-              onChange={(e) => handleTallasChange(e.target.value)}
-              className="input"
-              placeholder="S, M, L, XL"
-            />
-          </div>
+              <label>Tallas</label>
+              <div className={styles.coloresTags}>
+                {(formData.tallas || '').split(', ').filter((t: string) => t.trim()).map((talla: string) => (
+                  <span key={talla} className={styles.colorTag}>
+                    {talla}
+                    <button 
+                      type="button" 
+                      onClick={() => {
+                        const newTallas = (formData.tallas || '').split(', ').filter((t: string) => t.trim()).filter(t => t !== talla);
+                        setFormData({...formData, tallas: newTallas.join(', ')});
+                      }}
+                      className={styles.removeColor}
+                    >×</button>
+                  </span>
+                ))}
+                <input
+                  type="text"
+                  list="tallasPredefinidas"
+                  placeholder="+ Talla"
+                  className={styles.colorInput}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && e.currentTarget.value.trim()) {
+                      const newTalla = e.currentTarget.value.trim().toUpperCase();
+                      const currentTallas = (formData.tallas || '').split(', ').filter((t: string) => t.trim());
+                      if (!currentTallas.includes(newTalla)) {
+                        setFormData({
+                          ...formData,
+                          tallas: [...currentTallas, newTalla].join(', ')
+                        });
+                      }
+                      e.currentTarget.value = '';
+                    }
+                  }}
+                />
+                <datalist id="tallasPredefinidas">
+                  <option value="XS" />
+                  <option value="S" />
+                  <option value="M" />
+                  <option value="L" />
+                  <option value="XL" />
+                  <option value="XXL" />
+                  <option value="UNICA" />
+                </datalist>
+              </div>
+            </div>
 
           {/* Editor de unidades por COLOR+TALLA */}
           {formData.colores && formData.tallas && (
@@ -588,7 +680,7 @@ export function Productos() {
                       <div key={key} className={styles.unidadRow}>
                         <div className={styles.unidadColor}>
                           <ColorCircle color={color} size="sm" />
-                          <span>{color}</span>
+                          <span>{getColorName(color)}</span>
                         </div>
                         <span className={styles.unidadTalla}>{talla}</span>
                         <div className={styles.stockControls}>
