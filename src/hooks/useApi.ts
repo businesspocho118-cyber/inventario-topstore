@@ -635,6 +635,45 @@ export function useApi() {
 
   const getLastSync = useCallback(() => localStorage.getItem(STORAGE_KEYS.lastSync), []);
   
+  // Resetear todo el stock a 0 (una sola vez)
+  const resetStockToZero = useCallback(async () => {
+    console.log('[ResetStock] Iniciando reset de stock a 0...');
+    
+    // 1. Cargar desde localStorage
+    const stored = localStorage.getItem(STORAGE_KEYS.productos);
+    if (!stored) {
+      console.log('[ResetStock] No hay productos en localStorage');
+      return { success: false, error: 'No hay productos' };
+    }
+    
+    let productos: Producto[] = JSON.parse(stored);
+    console.log('[ResetStock] Productos encontrados:', productos.length);
+    
+    // 2. Poner todo el stock en 0
+    productos.forEach(p => {
+      p.stock = 0;
+      // También poner todas las combinaciones color+talla en 0
+      if (p.unidades) {
+        Object.keys(p.unidades).forEach(key => {
+          p.unidades[key] = 0;
+        });
+      }
+      p.updated_at = new Date().toISOString();
+    });
+    
+    // 3. Guardar en localStorage
+    localStorage.setItem(STORAGE_KEYS.productos, JSON.stringify(productos));
+    console.log('[ResetStock] Stock puesto en 0, guardado en localStorage');
+    
+    // 4. Sync a Supabase (para que el catalogo refleje el cambio)
+    for (const p of productos) {
+      await syncOneProductoToSupabase(p);
+    }
+    console.log('[ResetStock] Sincronizado a Supabase');
+    
+    return { success: true, count: productos.length };
+  }, []);
+  
   const resetData = useCallback(() => {
     localStorage.removeItem(STORAGE_KEYS.productos);
     localStorage.removeItem(STORAGE_KEYS.pedidos);
@@ -787,11 +826,11 @@ export function useApi() {
     return { success: true };
   }, []);
 
-  return {
+return {
     isLoading, getStats, getProductos, getPedidos, createProducto, updateProducto, deleteProducto,
     createPedido, updatePedidoEstado, updatePedido, deletePedido, getClientes, saveCliente, deleteCliente,
-    getLastSync, resetData, syncWithCatalog, exportToCSV,
-    // Exportar funciones internas para forzar recarga desde Supabase
+    getLastSync, resetData, resetStockToZero, syncWithCatalog, exportToCSV,
+    // Exportar funciones internas forzar recarga desde Supabase
     checkConnection, loadFromSupabaseAndSave, isSupabaseConnected
   };
 }
