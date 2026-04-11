@@ -8,6 +8,7 @@ import { Productos } from './pages/Productos';
 import { Pedidos } from './pages/Pedidos';
 import { Fidelidad } from './pages/Fidelidad';
 import { Configuracion } from './pages/Configuracion';
+import { Stock } from './pages/Stock';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
@@ -69,6 +70,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Configuracion />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/stock"
+        element={
+          <ProtectedRoute>
+            <Stock />
           </ProtectedRoute>
         }
       />
