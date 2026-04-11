@@ -9,7 +9,8 @@ import {
   Menu,
   X,
   ChevronLeft,
-  Star
+  Star,
+  ClipboardList
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import styles from './Sidebar.module.css';
@@ -21,6 +22,7 @@ interface SidebarProps {
 const navItems = [
   { path: '/', icon: LayoutDashboard, label: 'Dashboard' },
   { path: '/productos', icon: Package, label: 'Productos' },
+  { path: '/stock', icon: ClipboardList, label: 'Stock' },
   { path: '/pedidos', icon: ShoppingCart, label: 'Pedidos' },
   { path: '/fidelidad', icon: Star, label: 'Fidelidad' },
   { path: '/configuracion', icon: Settings, label: 'Configuración' },
