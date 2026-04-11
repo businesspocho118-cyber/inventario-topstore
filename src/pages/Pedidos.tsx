@@ -32,7 +32,7 @@ const estadoColors: Record<string, string> = {
 };
 
 export function Pedidos() {
-  const { getPedidos, getProductos, createPedido, updatePedido, updatePedidoEstado, deletePedido, isLoading, checkConnection, loadFromSupabaseAndSave, isSupabaseConnected } = useApi();
+  const { getPedidos, getProductos, createPedido, updatePedido, updatePedidoEstado, deletePedido, checkClienteExists, isLoading, checkConnection, loadFromSupabaseAndSave, isSupabaseConnected } = useApi();
   const { showToast } = useToast();
   
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
@@ -311,6 +311,15 @@ export function Pedidos() {
     if (!nuevoPedido.cliente_telefono.trim()) {
       showToast('⚠️ Falta el teléfono del cliente', 'warning');
       return;
+    }
+    
+    // Validar que no exista otro cliente con ese teléfono
+    if (tipoCliente === 'nuevo') {
+      const checkResult = checkClienteExists(nuevoPedido.cliente_telefono);
+      if (checkResult.exists) {
+        showToast(checkResult.message, 'error');
+        return;
+      }
     }
     
     // Validar dirección solo si es delivery

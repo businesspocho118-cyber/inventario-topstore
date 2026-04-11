@@ -633,6 +633,27 @@ export function useApi() {
     }
   }, []);
 
+  // Verificar si ya existe un cliente (por nombre o teléfono)
+  const checkClienteExists = useCallback((telefono: string, excludeId?: number): { exists: boolean; message: string } => {
+    const stored = localStorage.getItem(STORAGE_KEYS.clientes);
+    if (!stored) return { exists: false, message: '' };
+    
+    const clientes: any[] = JSON.parse(stored);
+    const telefonoLimpio = telefono.replace(/\D/g, ''); // Solo números
+    
+    // Buscar por teléfono
+    const existentePorTelefono = clientes.find(c => 
+      c.telefono && c.telefono.replace(/\D/g, '') === telefonoLimpio && 
+      (excludeId ? c.id !== excludeId : true)
+    );
+    
+    if (existentePorTelefono) {
+      return { exists: true, message: `⚠️ Ya existe un cliente con ese teléfono: ${existentePorTelefono.nombre}` };
+    }
+    
+    return { exists: false, message: '' };
+  }, []);
+
   const getLastSync = useCallback(() => localStorage.getItem(STORAGE_KEYS.lastSync), []);
   
   // Resetear todo el stock a 0 (una sola vez)
@@ -828,8 +849,8 @@ export function useApi() {
 
 return {
     isLoading, getStats, getProductos, getPedidos, createProducto, updateProducto, deleteProducto,
-    createPedido, updatePedidoEstado, updatePedido, deletePedido, getClientes, saveCliente, deleteCliente,
-    getLastSync, resetData, resetStockToZero, syncWithCatalog, exportToCSV,
+    createPedido, updatePedidoEstado, updatePedido, deletePedido, getClientes, saveCliente, deleteCliente, checkClienteExists,
+    getLastSync, resetStockToZero, syncWithCatalog, exportToCSV,
     // Exportar funciones internas forzar recarga desde Supabase
     checkConnection, loadFromSupabaseAndSave, isSupabaseConnected
   };

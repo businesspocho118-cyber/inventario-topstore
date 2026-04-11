@@ -13,7 +13,7 @@ const getComprasQueCuentan = (compras: number) => Math.max(0, compras - 1);
 const tieneDescuento = (compras: number) => getComprasQueCuentan(compras) >= COMPRAS_PARA_DESCUENTO;
 
 export function Fidelidad() {
-  const { getClientes, saveCliente, deleteCliente } = useApi();
+  const { getClientes, saveCliente, deleteCliente, checkClienteExists } = useApi();
   const { showToast } = useToast();
   const [clientes, setClientes] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -88,6 +88,13 @@ export function Fidelidad() {
     
     if (!clienteEditando.nombre?.trim() || !clienteEditando.telefono?.trim()) {
       showToast('Nombre y teléfono son requeridos', 'warning');
+      return;
+    }
+
+    // Validar que no exista otro cliente con ese teléfono
+    const checkResult = checkClienteExists(clienteEditando.telefono, clienteEditando.id);
+    if (checkResult.exists) {
+      showToast(checkResult.message, 'error');
       return;
     }
 
