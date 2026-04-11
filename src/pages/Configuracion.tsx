@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Database, Globe, RefreshCw, AlertCircle, CheckCircle, Trash2, Download } from 'lucide-react';
+import { Database, Globe, RefreshCw, AlertCircle, CheckCircle, Trash2, Download, Package } from 'lucide-react';
 import { useToast } from '../components/Toast';
 import { useApi } from '../hooks/useApi';
 import type { SyncResult } from '../types';
@@ -19,6 +19,41 @@ export function Configuracion() {
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
     return date.toLocaleString('es-CO');
+  };
+
+  const handleResetStock = async () => {
+    // Primera advertencia
+    const primeraConfirmacion = window.confirm(
+      '⚠️ ADVERTENCIA\n\n' +
+      'Esto va a poner TODOS los productos con stock 0.\n\n' +
+      '¿Estás seguro de que quieres continuar?'
+    );
+    if (!primeraConfirmacion) return;
+    
+    // Segunda advertencia
+    const segundaConfirmacion = window.confirm(
+      '⚠️ ÚLTIMA ADVERTENCIA\n\n' +
+      'Se van a borrar TODOS los stocks.\n\n' +
+      'Después de esto, cuando modifiques una prenda y le pongas stock, se va a reflejar en el catálogo.\n\n' +
+      '¿CONFIRMÁS que quieres poner todo en stock 0?'
+    );
+    if (!segundaConfirmacion) return;
+    
+    setIsSyncing(true);
+    showToast('⏳ Reiniciando stock...', 'info');
+    
+    try {
+      const result = await api.resetStockToZero();
+      if (result.success) {
+        showToast(`✅ Stock reiniciado a 0 en ${result.count} productos`, 'success');
+        setTimeout(() => window.location.reload(), 1500);
+      } else {
+        showToast('Error: ' + (result.error || 'Unknown'), 'error');
+      }
+    } catch (error) {
+      showToast('Error al reiniciar stock', 'error');
+    }
+    setIsSyncing(false);
   };
 
   const handleSync = async () => {
@@ -108,6 +143,35 @@ export function Configuracion() {
                   <Trash2 size={16} />
                 </button>
               </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Resetear Stock a 0 */}
+        <section className={styles.section}>
+          <div className={styles.sectionHeader}>
+            <Package size={20} className={styles.sectionIcon} />
+            <h2>Reiniciar Stock</h2>
+          </div>
+          <p className={styles.sectionDesc}>
+            Poner todos los productos en stock 0. Útil para empezar de cero.
+          </p>
+          <div className={styles.card}>
+            <div className={styles.cardContent}>
+              <div>
+                <h4>Stock actual</h4>
+                <p className={styles.statusText}>
+                  Se pondrán todas las prendas en 0 unidades
+                </p>
+              </div>
+              <button 
+                className="btn btn-danger"
+                onClick={handleResetStock}
+                disabled={isSyncing}
+              >
+                <Package size={16} />
+                Poner Todo en Stock 0
+              </button>
             </div>
           </div>
         </section>
