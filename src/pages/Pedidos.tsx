@@ -156,8 +156,12 @@ export function Pedidos() {
     ]);
     
     if (pedidosResult.success && pedidosResult.data) {
-      setPedidos(pedidosResult.data);
-      setFilteredPedidos(pedidosResult.data);
+      // Ordenar por más reciente primero
+      const pedidosOrdenados = [...pedidosResult.data].sort((a, b) => 
+        new Date(b.fecha).getTime() - new Date(a.fecha).getTime()
+      );
+      setPedidos(pedidosOrdenados);
+      setFilteredPedidos(pedidosOrdenados);
     }
     
     if (productosResult.success && productosResult.data) {
@@ -391,8 +395,12 @@ export function Pedidos() {
         ]);
         
         if (pedidosResult.success && pedidosResult.data) {
-          setPedidos(pedidosResult.data);
-          setFilteredPedidos(pedidosResult.data);
+          // Ordenar por más reciente primero
+          const pedidosOrdenados = [...pedidosResult.data].sort((a, b) => 
+            new Date(b.fecha).getTime() - new Date(a.fecha).getTime()
+          );
+          setPedidos(pedidosOrdenados);
+          setFilteredPedidos(pedidosOrdenados);
         }
         
         // Recargar clientes de fidelidad

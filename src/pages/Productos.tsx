@@ -512,7 +512,21 @@ export function Productos() {
                       type="button" 
                       onClick={() => {
                         const newColors = (formData.colores || '').split(', ').filter((c: string) => c.trim()).filter(c => c !== color);
-                        setFormData({...formData, colores: newColors.join(', ')});
+                        // También borrar las unidades de ese color
+                        const newUnidades = { ...(formData.unidades || {}) };
+                        Object.keys(newUnidades).forEach(key => {
+                          if (key.startsWith(color + '-') || key.startsWith(color + ' #') || key.startsWith(color + '#')) {
+                            delete newUnidades[key];
+                          }
+                        });
+                        // Recalcular stock total
+                        const totalStock = Object.values(newUnidades).reduce((a: number, b: number) => a + b, 0);
+                        setFormData({
+                          ...formData,
+                          colores: newColors.join(', '),
+                          unidades: newUnidades,
+                          stock: totalStock
+                        });
                       }}
                       className={styles.removeColor}
                     >×</button>
