@@ -40,7 +40,7 @@ export function Productos() {
   const [productos, setProductos] = useState<Producto[]>([]);
   const [filteredProductos, setFilteredProductos] = useState<Producto[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterGenero, setFilterGenero] = useState<'all' | 'hombres' | 'mujeres'>('all');
+  const [filterGenero, setFilterGenero] = useState<'hombres' | 'mujeres'>('mujeres');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProducto, setEditingProducto] = useState<Producto | null>(null);
   const [formData, setFormData] = useState<FormData>(initialForm);
@@ -49,11 +49,7 @@ export function Productos() {
   // Stats computados dinámicamente según el filtro de género
   const stats = useMemo(() => {
     const activos = productos.filter(p => p.activo);
-    let filtered = activos;
-    
-    if (filterGenero !== 'all') {
-      filtered = filtered.filter(p => p.genero === filterGenero);
-    }
+    let filtered = activos.filter(p => p.genero === filterGenero);
     
     const total = filtered.length;
     const sinStock = filtered.filter(p => p.stock === 0).length;
@@ -125,9 +121,7 @@ export function Productos() {
       );
     }
     
-    if (filterGenero !== 'all') {
-      filtered = filtered.filter(p => p.genero === filterGenero);
-    }
+    filtered = filtered.filter(p => p.genero === filterGenero);
     
     setFilteredProductos(filtered);
   }, [searchTerm, filterGenero, productos]);
@@ -325,12 +319,6 @@ export function Productos() {
         </div>
 
         <div className={styles.filterButtons}>
-          <button
-            className={`${styles.filterBtn} ${filterGenero === 'all' ? styles.active : ''}`}
-            onClick={() => setFilterGenero('all')}
-          >
-            Todos
-          </button>
           <button
             className={`${styles.filterBtn} ${filterGenero === 'mujeres' ? styles.active : ''}`}
             onClick={() => setFilterGenero('mujeres')}

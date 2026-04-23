@@ -10,6 +10,7 @@ export function Stock() {
   const { getProductos, isLoading } = useApi();
   const [productos, setProductos] = useState<Producto[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [filterGenero, setFilterGenero] = useState<'hombres' | 'mujeres'>('mujeres');
 
   useEffect(() => {
     loadProductos();
@@ -23,13 +24,17 @@ export function Stock() {
   };
 
   const filteredProductos = useMemo(() => {
-    if (!searchTerm) return productos;
-    return productos.filter(p =>
-      p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.product_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.categoria.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [searchTerm, productos]);
+    let filtered = productos.filter(p => p.genero === filterGenero);
+    
+    if (searchTerm) {
+      filtered = filtered.filter(p =>
+        p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        p.product_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        p.categoria.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+    return filtered;
+  }, [searchTerm, productos, filterGenero]);
 
   // Obtener stock por color y talla
   const getStockPorColorTalla = (producto: Producto) => {
@@ -69,6 +74,22 @@ export function Stock() {
           </p>
         </div>
       </header>
+
+      {/* Filtro género */}
+      <div className={styles.filterButtons}>
+        <button
+          className={`${styles.filterBtn} ${filterGenero === 'mujeres' ? styles.active : ''}`}
+          onClick={() => setFilterGenero('mujeres')}
+        >
+          Mujeres
+        </button>
+        <button
+          className={`${styles.filterBtn} ${filterGenero === 'hombres' ? styles.active : ''}`}
+          onClick={() => setFilterGenero('hombres')}
+        >
+          Hombres
+        </button>
+      </div>
 
       {/* Buscador */}
       <div className={styles.searchWrapper}>
