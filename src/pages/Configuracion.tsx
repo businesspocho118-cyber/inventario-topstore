@@ -74,14 +74,6 @@ export function Configuracion() {
     setIsSyncing(false);
   };
 
-  const handleReset = () => {
-    if (confirm('¿Querés resetear los datos a los originales?')) {
-      api.resetData();
-      showToast('Datos reseteados. Recargá la página.', 'success');
-      setTimeout(() => window.location.reload(), 1000);
-    }
-  };
-
   const handleExport = () => {
     try {
       api.exportToCSV();
@@ -135,19 +127,12 @@ export function Configuracion() {
                     </>
                   )}
                 </button>
-                <button 
-                  className="btn btn-danger"
-                  onClick={handleReset}
-                  title="Resetear a datos originales"
-                >
-                  <Trash2 size={16} />
-                </button>
               </div>
             </div>
           </div>
         </section>
 
-        {/* Resetear Stock a 0 */}
+        {/* Reiniciar Stock a 0 */}
         <section className={styles.section}>
           <div className={styles.sectionHeader}>
             <Package size={20} className={styles.sectionIcon} />
