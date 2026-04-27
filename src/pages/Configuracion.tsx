@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Database, Globe, RefreshCw, AlertCircle, CheckCircle, Trash2, Download, Package } from 'lucide-react';
+import { Database, Globe, RefreshCw, AlertCircle, CheckCircle, Trash2, Download, Package, RotateCcw } from 'lucide-react';
 import { useToast } from '../components/Toast';
 import { useApi } from '../hooks/useApi';
 import type { SyncResult } from '../types';
@@ -10,6 +10,43 @@ export function Configuracion() {
   const api = useApi();
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSync, setLastSync] = useState<string | null>(null);
+
+  // Hard refresh: borrar localStorage y cargar todo desde Supabase
+  const handleHardRefresh = async () => {
+    const confirm1 = window.confirm(
+      '⚠️ HARD REFRESH\n\n' +
+      'Esto va a borrar TODO lo que tenés en el navegador y cargar TODO desde Supabase.\n\n' +
+      '¿Continuar?'
+    );
+    if (!confirm1) return;
+    
+    const confirm2 = window.confirm(
+      '⚠️ ÚLTIMA CONFIRMACIÓN\n\n' +
+      'Se van a perder cualquier cambio que no haya sido synced a Supabase.\n\n' +
+      '¿CONFIRMÁS?'
+    );
+    if (!confirm2) return;
+    
+    setIsSyncing(true);
+    showToast('🔄 Cargando datos desde Supabase...', 'info');
+    
+    try {
+      // 1. Limpiar localStorage
+      localStorage.removeItem('topstore_productos');
+      localStorage.removeItem('topstore_pedidos');
+      localStorage.removeItem('topstore_clientes_fidelidad');
+      
+      // 2. Cargar desde Supabase
+      await api.loadFromSupabaseAndSave();
+      
+      showToast('✅ Datos recargados desde Supabase', 'success');
+      setTimeout(() => window.location.reload(), 1500);
+    } catch (error) {
+      showToast('Error al recargar desde Supabase', 'error');
+    }
+    
+    setIsSyncing(false);
+  };
 
   useEffect(() => {
     const sync = api.getLastSync();
@@ -128,6 +165,36 @@ export function Configuracion() {
                   )}
                 </button>
               </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Hard Refresh desde Supabase */}
+        <section className={styles.section}>
+          <div className={styles.sectionHeader}>
+            <RotateCcw size={20} className={styles.sectionIcon} />
+            <h2>Recargar desde Supabase</h2>
+          </div>
+          <p className={styles.sectionDesc}>
+            Borrar datos local y cargar todo desde Supabase. Útil si hay desincronización.
+          </p>
+          <div className={styles.card}>
+            <div className={styles.cardContent}>
+              <div>
+                <h4>Estado</h4>
+                <p className={styles.statusText}>
+                  <AlertCircle size={14} className={styles.statusIcon} />
+                  Cargar datos frescos de Supabase
+                </p>
+              </div>
+              <button 
+                className="btn btn-secondary"
+                onClick={handleHardRefresh}
+                disabled={isSyncing}
+              >
+                <RotateCcw size={16} />
+                Recargar Todo
+              </button>
             </div>
           </div>
         </section>
