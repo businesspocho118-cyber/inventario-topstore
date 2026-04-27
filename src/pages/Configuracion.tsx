@@ -13,20 +13,6 @@ export function Configuracion() {
 
   // Hard refresh: borrar localStorage y cargar todo desde Supabase
   const handleHardRefresh = async () => {
-    const confirm1 = window.confirm(
-      '⚠️ HARD REFRESH\n\n' +
-      'Esto va a borrar TODO lo que tenés en el navegador y cargar TODO desde Supabase.\n\n' +
-      '¿Continuar?'
-    );
-    if (!confirm1) return;
-    
-    const confirm2 = window.confirm(
-      '⚠️ ÚLTIMA CONFIRMACIÓN\n\n' +
-      'Se van a perder cualquier cambio que no haya sido synced a Supabase.\n\n' +
-      '¿CONFIRMÁS?'
-    );
-    if (!confirm2) return;
-    
     setIsSyncing(true);
     showToast('🔄 Cargando datos desde Supabase...', 'info');
     
